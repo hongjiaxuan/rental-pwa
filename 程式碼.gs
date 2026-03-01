@@ -959,10 +959,11 @@ function getRoomAnnualTpData(roomId) {
       if (String(rData[i][0]) === roomId) {
         roomInfo = {
           roomId:    roomId,
-          tenant:    String(rData[i][1]),
+          tenant:    String(rData[i][1] || '').trim(),
           startDate: rData[i][3] ? Utilities.formatDate(new Date(rData[i][3]), "GMT+8", "yyyy-MM-dd") : '',
           endDate:   rData[i][4] ? Utilities.formatDate(new Date(rData[i][4]), "GMT+8", "yyyy-MM-dd") : '',
-          elecRate:  Number(rData[i][8]) || 6.5
+          elecRate:  Number(rData[i][8]) || 6.5,
+          rent:      Number(rData[i][5]) || 0
         };
         break;
       }
@@ -975,8 +976,8 @@ function getRoomAnnualTpData(roomId) {
     let history = [];
     let lastDate = null;
     for (let i = 1; i < bData.length; i++) {
-      if (String(bData[i][2]) !== roomId) continue;
-      if (String(bData[i][10]) !== roomInfo.tenant) continue;
+      if (String(bData[i][2] || '').trim() !== roomId) continue;
+      if (String(bData[i][10] || '').trim() !== roomInfo.tenant) continue;
       let bDate = new Date(bData[i][1]);
       if (isNaN(bDate.getTime())) continue;
       // 只取本合約起始日之後的帳單

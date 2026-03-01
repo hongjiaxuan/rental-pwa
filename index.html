@@ -77,11 +77,11 @@
         <div class="bg-white border border-stone-200 p-4 rounded shadow-sm mt-2">
           <h3 class="text-sm font-bold text-stone-700 mb-3 border-b pb-2">📋 系統提醒事項</h3>
           <ul class="space-y-2 text-sm">
-            <li class="flex justify-between items-center cursor-pointer hover:bg-stone-50 p-2 rounded border border-transparent hover:border-stone-200 transition-colors" onclick="switchTab('tenant')">
+            <li class="flex justify-between items-center cursor-pointer hover:bg-stone-50 p-2 rounded border border-transparent hover:border-stone-200 transition-colors" onclick="switchToTenantFiltered('expired')">
               <span class="text-stone-600">合約已過期</span>
               <span class="bg-red-100 text-red-700 font-bold px-2 py-0.5 rounded text-xs" id="dbExpiredCount">0 戶</span>
             </li>
-            <li class="flex justify-between items-center cursor-pointer hover:bg-stone-50 p-2 rounded border border-transparent hover:border-stone-200 transition-colors" onclick="switchTab('tenant')">
+            <li class="flex justify-between items-center cursor-pointer hover:bg-stone-50 p-2 rounded border border-transparent hover:border-stone-200 transition-colors" onclick="switchToTenantFiltered('expiring')">
               <span class="text-stone-600">30天內將到期</span>
               <span class="bg-yellow-100 text-yellow-700 font-bold px-2 py-0.5 rounded text-xs" id="dbExpiringCount">0 戶</span>
             </li>
@@ -111,8 +111,8 @@
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-stone-600 mb-2">拍攝電表</label>
-              <input type="file" id="photoInput" accept="image/*" capture="camera" class="block w-full text-xs text-stone-500 file:mr-2 file:py-1.5 file:px-3 file:border-0 file:bg-stone-100 hover:file:bg-stone-200" required>
+              <label class="block text-sm font-medium text-stone-600 mb-2">拍攝或選取電表照片</label>
+              <input type="file" id="photoInput" accept="image/*" class="block w-full text-xs text-stone-500 file:mr-2 file:py-1.5 file:px-3 file:border-0 file:bg-stone-100 hover:file:bg-stone-200" required>
               <img id="previewImg" class="mt-3 max-h-40 object-cover hidden border border-stone-200 w-full rounded">
             </div>
             <div>
@@ -122,7 +122,11 @@
             <button type="submit" id="submitBtn" class="w-full bg-stone-800 hover:bg-stone-700 text-white font-medium py-3 text-lg tracking-widest rounded transition-colors">送出</button>
           </form>
         </div>
-        <div id="doneScreen" class="hidden text-center py-16"><h2 class="text-2xl font-light text-stone-800 mb-2">本月抄表完成</h2></div>
+        <div id="doneScreen" class="hidden text-center py-16">
+          <h2 class="text-2xl font-light text-stone-800 mb-2">目前無待抄表房間</h2>
+          <p class="text-stone-400 text-sm mb-4">所有房間本月已完成，或尚無出租中房間</p>
+          <button onclick="refreshMeter()" class="bg-stone-800 text-white px-6 py-2 rounded text-sm">重新整理</button>
+        </div>
       </div>
 
       <div id="billingSection" class="hidden space-y-3">
@@ -266,7 +270,7 @@
             <button onclick="loadTenants()" class="text-xs bg-stone-100 px-3 py-1.5 text-stone-600 border border-stone-200 rounded shadow-sm">重新整理</button>
           </div>
           <div class="flex gap-2 px-1">
-            <input type="text" id="tenantSearch" placeholder="🔍 搜尋房號或租客..." class="w-full px-3 py-2 border border-stone-300 rounded bg-[#f9f9f8] text-sm focus:bg-white shadow-inner" oninput="applyTenantFilter()">
+            <input type="text" id="tenantSearch" placeholder="🔍 搜尋房號或租客..." class="w-full px-3 py-2 border border-stone-300 rounded bg-[#f9f9f8] text-sm focus:bg-white shadow-inner" oninput="tenantFilterMode='all'; applyTenantFilter()">
           </div>
         </div>
 
@@ -277,9 +281,16 @@
         <div class="border-b border-stone-200 pb-2 mb-2 flex justify-between items-center">
           <h2 class="text-lg font-bold text-stone-800">收款報表</h2>
         </div>
-        <!-- 年度選擇 + 按鈕 -->
+        <!-- 年度 + 月份選擇 + 按鈕 -->
         <div class="flex gap-2 items-center">
           <select id="reportYear" class="flex-1 px-3 py-2 border border-stone-300 bg-[#f9f9f8] rounded text-sm"></select>
+          <select id="reportMonth" class="w-24 px-3 py-2 border border-stone-300 bg-[#f9f9f8] rounded text-sm" onchange="renderReportTable()">
+            <option value="">全年</option>
+            <option value="01">1 月</option><option value="02">2 月</option><option value="03">3 月</option>
+            <option value="04">4 月</option><option value="05">5 月</option><option value="06">6 月</option>
+            <option value="07">7 月</option><option value="08">8 月</option><option value="09">9 月</option>
+            <option value="10">10 月</option><option value="11">11 月</option><option value="12">12 月</option>
+          </select>
           <button onclick="loadReport()" class="bg-stone-800 text-white px-4 py-2 rounded text-sm font-medium">載入</button>
           <button onclick="exportReportCSV()" class="bg-stone-100 text-stone-700 border border-stone-300 px-3 py-2 rounded text-sm">匯出CSV</button>
         </div>
@@ -811,17 +822,25 @@
     }
 
     // === 1. 抄表模組 ===
-    function initRooms(rooms) { 
-      pendingRooms = rooms; 
-      if (rooms.length > 0) { 
-        const select = document.getElementById('mRoomSelect'); 
-        select.innerHTML = '<option value="">請選擇...</option>'; 
-        rooms.forEach((r, idx) => { select.innerHTML += `<option value="${idx}">${r.roomId} (${r.tenant})</option>`; }); 
-        document.getElementById('meterCard').classList.remove('hidden'); 
-      } else { 
-        document.getElementById('meterCard').classList.add('hidden'); 
-        document.getElementById('doneScreen').classList.remove('hidden'); 
-      } 
+    function refreshMeter() {
+      cacheStatus.meter = false;
+      document.getElementById('doneScreen').classList.add('hidden');
+      google.script.run.withSuccessHandler(initRooms).getPendingRooms();
+    }
+
+    function initRooms(data) {
+      // GAS 回傳 { pending, completed, yearMonth } 或舊版陣列格式
+      const rooms = Array.isArray(data) ? data : (data && data.pending ? data.pending : []);
+      pendingRooms = rooms;
+      if (rooms.length > 0) {
+        const select = document.getElementById('mRoomSelect');
+        select.innerHTML = '<option value="">請選擇...</option>';
+        rooms.forEach((r, idx) => { select.innerHTML += `<option value="${idx}">${r.roomId} (${r.tenant})</option>`; });
+        document.getElementById('meterCard').classList.remove('hidden');
+      } else {
+        document.getElementById('meterCard').classList.add('hidden');
+        document.getElementById('doneScreen').classList.remove('hidden');
+      }
     }
 
  function renderSelectedRoom() { 
@@ -1785,20 +1804,55 @@ document.getElementById('checkoutForm').addEventListener('submit', function(e){
     }
     // === 5. 租客管理模組 ===
     let globalRooms = [];
+    let tenantFilterMode = 'all'; // 'all' | 'expired' | 'expiring'
     function loadTenants() {
       document.getElementById('tenantContainer').innerHTML = '<p class="text-stone-400 text-center py-10 text-sm">載入中...</p>';
       google.script.run.withSuccessHandler(data => { globalRooms = data; applyTenantFilter(); }).getAllRoomsInfo();
+    }
+
+    function switchToTenantFiltered(mode) {
+      tenantFilterMode = mode;
+      document.getElementById('tenantSearch').value = '';
+      switchTab('tenant');
+      if (globalRooms.length > 0) applyTenantFilter();
+      else {
+        google.script.run.withSuccessHandler(data => {
+          globalRooms = data; applyTenantFilter();
+        }).getAllRoomsInfo();
+      }
     }
 // ==========================================
 // 替換這三個函數，確保沒有任何 [cite] 標籤
 // ==========================================
 
+function parseLocalDate(val) {
+  if (!val || val === '未填寫') return null;
+  const m = String(val).match(/(\d{4})[^\d](\d{1,2})[^\d](\d{1,2})/);
+  if (!m) return null;
+  return new Date(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3]));
+}
+
 function applyTenantFilter() {
   const keyword = document.getElementById('tenantSearch').value.toLowerCase();
-  const filtered = globalRooms.filter(r => r.roomId.toLowerCase().includes(keyword) || r.tenant.toLowerCase().includes(keyword));
+  const today = new Date(); today.setHours(0,0,0,0);
+  const filtered = globalRooms.filter(r => {
+    const matchKeyword = r.roomId.toLowerCase().includes(keyword) || r.tenant.toLowerCase().includes(keyword);
+    if (!matchKeyword) return false;
+    if (tenantFilterMode === 'expired') {
+      if (r.status !== '出租中') return false;
+      const eDate = parseLocalDate(r.endDate);
+      return eDate && eDate < today;
+    }
+    if (tenantFilterMode === 'expiring') {
+      if (r.status !== '出租中') return false;
+      const eDate = parseLocalDate(r.endDate);
+      if (!eDate) return false;
+      const diff = Math.ceil((eDate - today) / 86400000);
+      return diff >= 0 && diff <= 30;
+    }
+    return true;
+  });
   let html = '';
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
 
   filtered.forEach(r => {
     const isRented = r.status === '出租中';
@@ -1808,11 +1862,13 @@ function applyTenantFilter() {
     
     // 合約到期警示
     let expireWarning = '';
-    if (isRented && r.endDate && r.endDate !== '未填寫') {
-      const eDate = new Date(r.endDate);
-      const diffDays = Math.ceil((eDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-      if (diffDays < 0) expireWarning = `<span class="bg-red-100 text-red-700 text-[10px] px-2 py-0.5 rounded border border-red-200 font-bold">🚨 過期</span>`;
-      else if (diffDays <= 30) expireWarning = `<span class="bg-yellow-100 text-yellow-700 text-[10px] px-2 py-0.5 rounded border border-yellow-200 font-bold">⚠️ 剩 ${diffDays} 天</span>`;
+    if (isRented) {
+      const eDate = parseLocalDate(r.endDate);
+      if (eDate) {
+        const diffDays = Math.ceil((eDate - today) / 86400000);
+        if (diffDays < 0) expireWarning = `<span class="bg-red-100 text-red-700 text-[10px] px-2 py-0.5 rounded border border-red-200 font-bold">🚨 過期</span>`;
+        else if (diffDays <= 30) expireWarning = `<span class="bg-yellow-100 text-yellow-700 text-[10px] px-2 py-0.5 rounded border border-yellow-200 font-bold">⚠️ 剩 ${diffDays} 天</span>`;
+      }
     }
 
     const tntStr = encodeURIComponent(JSON.stringify(r));
@@ -2136,6 +2192,15 @@ function reprintBill(hStr) {
           document.getElementById('tpAnnualEnd').innerText = data.room.endDate;
           document.getElementById('tpAnnualNewEnd').value = '';
           document.getElementById('tpAnnualNewRent').value = data.room.rent || '';
+          if (!data.history || data.history.length === 0) {
+            document.getElementById('tpAnnualDetails').classList.remove('hidden');
+            document.getElementById('tpDiffBox').innerHTML =
+              '<p class="text-sm text-stone-500 text-center py-4">此房間尚無帳單記錄，無法計算台電差額。<br>請確認帳單資料後再試。</p>';
+            document.getElementById('tpAnnualSubmitBtn').classList.add('hidden');
+            showAlert('', '');
+            return;
+          }
+          document.getElementById('tpAnnualSubmitBtn').classList.remove('hidden');
           // 計算差額：加總 history 中各期租客電費 vs 台電實際費用
           let tenantPaid = 0, tpActual = 0;
           (data.history || []).forEach(h => {
@@ -2208,9 +2273,63 @@ function reprintBill(hStr) {
       }
     }
 
+    let _reportData = null;
+
+    function renderReportTable() {
+      if (!_reportData) return;
+      const d = _reportData;
+      const filterMonth = document.getElementById('reportMonth').value; // '' 或 '01'..'12'
+      const months = filterMonth
+        ? d.months.filter(ym => ym.endsWith('-' + filterMonth))
+        : d.months;
+      if (months.length === 0) {
+        document.getElementById('reportTableWrap').innerHTML =
+          '<p class="text-stone-400 text-center py-10 text-sm">該月份無資料</p>';
+        return;
+      }
+      let html = '<table class="w-full text-xs border-collapse">';
+      html += '<thead><tr class="bg-stone-800 text-white">';
+      ['月份','房號','租客','租金','電費','水費','其他','應收','已收','未收'].forEach(h => {
+        html += `<th class="px-2 py-2 text-center whitespace-nowrap">${h}</th>`;
+      });
+      html += '</tr></thead><tbody>';
+      months.forEach(ym => {
+        const rows = Object.values(d.monthData[ym] || {});
+        rows.sort((a, b) => a.rid.localeCompare(b.rid));
+        rows.forEach((r, i) => {
+          html += `<tr class="${i % 2 === 0 ? 'bg-white' : 'bg-stone-50'} border-b border-stone-100">`;
+          html += `<td class="px-2 py-1.5 text-center">${i === 0 ? ym : ''}</td>`;
+          html += `<td class="px-2 py-1.5 text-center font-medium">${r.rid}</td>`;
+          html += `<td class="px-2 py-1.5">${r.tenant}</td>`;
+          html += `<td class="px-2 py-1.5 text-right">${(r.rent||0).toLocaleString()}</td>`;
+          html += `<td class="px-2 py-1.5 text-right">${(r.elec||0).toLocaleString()}</td>`;
+          html += `<td class="px-2 py-1.5 text-right">${(r.water||0).toLocaleString()}</td>`;
+          html += `<td class="px-2 py-1.5 text-right">${(r.extra||0).toLocaleString()}</td>`;
+          html += `<td class="px-2 py-1.5 text-right font-medium">${(r.totalAmt||0).toLocaleString()}</td>`;
+          html += `<td class="px-2 py-1.5 text-right text-green-700">${(r.paid||0).toLocaleString()}</td>`;
+          html += `<td class="px-2 py-1.5 text-right ${r.unpaid > 0 ? 'text-red-600 font-bold' : 'text-stone-400'}">${(r.unpaid||0).toLocaleString()}</td>`;
+          html += '</tr>';
+        });
+        const s = d.monthSummary[ym] || {};
+        html += `<tr class="bg-stone-200 font-bold border-t-2 border-stone-400">`;
+        html += `<td class="px-2 py-1.5 text-center" colspan="3">${ym} 小計</td>`;
+        html += `<td class="px-2 py-1.5 text-right">${(s.sumRent||0).toLocaleString()}</td>`;
+        html += `<td class="px-2 py-1.5 text-right">${(s.sumElec||0).toLocaleString()}</td>`;
+        html += `<td class="px-2 py-1.5 text-right">${(s.sumWater||0).toLocaleString()}</td>`;
+        html += `<td class="px-2 py-1.5 text-right">${(s.sumExtra||0).toLocaleString()}</td>`;
+        html += `<td class="px-2 py-1.5 text-right">${((s.sumPaid||0)+(s.sumUnpaid||0)).toLocaleString()}</td>`;
+        html += `<td class="px-2 py-1.5 text-right text-green-700">${(s.sumPaid||0).toLocaleString()}</td>`;
+        html += `<td class="px-2 py-1.5 text-right text-red-600">${(s.sumUnpaid||0).toLocaleString()}</td>`;
+        html += '</tr>';
+      });
+      html += '</tbody></table>';
+      document.getElementById('reportTableWrap').innerHTML = html;
+    }
+
     function loadReport() {
       const year = document.getElementById('reportYear').value;
       showAlert('載入報表中...', 'blue');
+      document.getElementById('reportTableWrap').innerHTML = '<p class="text-stone-400 text-center py-6 text-sm">載入中...</p>';
       google.script.run
         .withSuccessHandler(statsRes => {
           if (statsRes.success) {
@@ -2220,7 +2339,9 @@ function reprintBill(hStr) {
             const avg = d.yearCount > 0 ? Math.round(d.yearTotal / Math.min(new Date().getMonth() + 1, 12)) : 0;
             document.getElementById('rptMonthAvg').innerText = '$' + avg.toLocaleString();
           }
-        }).getReportData({});
+        })
+        .withFailureHandler(err => showAlert('統計載入失敗：' + err.message, 'red'))
+        .getReportData({});
 
       google.script.run
         .withSuccessHandler(res => {
@@ -2231,43 +2352,8 @@ function reprintBill(hStr) {
             document.getElementById('reportTableWrap').innerHTML = '<p class="text-stone-400 text-center py-10 text-sm">該年度無資料</p>';
             return;
           }
-          let html = '<table class="w-full text-xs border-collapse">';
-          html += '<thead><tr class="bg-stone-800 text-white">';
-          ['月份','房號','租客','租金','電費','水費','其他','應收','已收','未收'].forEach(h => {
-            html += `<th class="px-2 py-2 text-center whitespace-nowrap">${h}</th>`;
-          });
-          html += '</tr></thead><tbody>';
-          d.months.forEach(ym => {
-            const rows = Object.values(d.monthData[ym] || {});
-            rows.sort((a, b) => a.rid.localeCompare(b.rid));
-            rows.forEach((r, i) => {
-              html += `<tr class="${i % 2 === 0 ? 'bg-white' : 'bg-stone-50'} border-b border-stone-100">`;
-              html += `<td class="px-2 py-1.5 text-center">${i === 0 ? ym : ''}</td>`;
-              html += `<td class="px-2 py-1.5 text-center font-medium">${r.rid}</td>`;
-              html += `<td class="px-2 py-1.5">${r.tenant}</td>`;
-              html += `<td class="px-2 py-1.5 text-right">${(r.rent||0).toLocaleString()}</td>`;
-              html += `<td class="px-2 py-1.5 text-right">${(r.elec||0).toLocaleString()}</td>`;
-              html += `<td class="px-2 py-1.5 text-right">${(r.water||0).toLocaleString()}</td>`;
-              html += `<td class="px-2 py-1.5 text-right">${(r.extra||0).toLocaleString()}</td>`;
-              html += `<td class="px-2 py-1.5 text-right font-medium">${(r.totalAmt||0).toLocaleString()}</td>`;
-              html += `<td class="px-2 py-1.5 text-right text-green-700">${(r.paid||0).toLocaleString()}</td>`;
-              html += `<td class="px-2 py-1.5 text-right ${r.unpaid > 0 ? 'text-red-600 font-bold' : 'text-stone-400'}">${(r.unpaid||0).toLocaleString()}</td>`;
-              html += '</tr>';
-            });
-            const s = d.monthSummary[ym] || {};
-            html += `<tr class="bg-stone-200 font-bold border-t-2 border-stone-400">`;
-            html += `<td class="px-2 py-1.5 text-center" colspan="3">${ym} 小計</td>`;
-            html += `<td class="px-2 py-1.5 text-right">${(s.sumRent||0).toLocaleString()}</td>`;
-            html += `<td class="px-2 py-1.5 text-right">${(s.sumElec||0).toLocaleString()}</td>`;
-            html += `<td class="px-2 py-1.5 text-right">${(s.sumWater||0).toLocaleString()}</td>`;
-            html += `<td class="px-2 py-1.5 text-right">${(s.sumExtra||0).toLocaleString()}</td>`;
-            html += `<td class="px-2 py-1.5 text-right">${((s.sumPaid||0)+(s.sumUnpaid||0)).toLocaleString()}</td>`;
-            html += `<td class="px-2 py-1.5 text-right text-green-700">${(s.sumPaid||0).toLocaleString()}</td>`;
-            html += `<td class="px-2 py-1.5 text-right text-red-600">${(s.sumUnpaid||0).toLocaleString()}</td>`;
-            html += '</tr>';
-          });
-          html += '</tbody></table>';
-          document.getElementById('reportTableWrap').innerHTML = html;
+          _reportData = d;
+          renderReportTable();
         })
         .withFailureHandler(err => showAlert('報表錯誤：' + err.message, 'red'))
         .getMonthlyReport(year);
