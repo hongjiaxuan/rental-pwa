@@ -566,9 +566,10 @@
       window.google.script.run = buildRunner({});
 
       // ── 首次設定 API URL 的 Modal ──────────────────────────────
+      let _gasSetupPromise = null;
       window._gasShowSetup = function() {
-        return new Promise(resolve => {
-          if (document.getElementById('_gasSetup')) return resolve();
+        if (_gasSetupPromise) return _gasSetupPromise;
+        _gasSetupPromise = new Promise(resolve => {
           const el = document.createElement('div');
           el.id = '_gasSetup';
           el.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.8)';
@@ -597,10 +598,12 @@
             }
             try { localStorage.setItem('GAS_API_URL', val); } catch(e) {}
             window._gasApiUrl = val;
+            _gasSetupPromise = null;
             el.remove();
             resolve();
           };
         });
+        return _gasSetupPromise;
       };
 
       // 設定頁使用：重設連線
