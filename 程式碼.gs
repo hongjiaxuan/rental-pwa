@@ -71,7 +71,7 @@ function doPost(e) {
 // A[0]房號 B[1]租客 C[2]狀態 D[3]合約起始日 E[4]合約到期日
 // F[5]租金 G[6]押金 H[7]收款週期 I[8]電費單價 J[9]固定水費
 // K[10]上期度數 L[11]預繳租金餘額 M[12]帳款結餘
-// N[13]下次收租月 O[14]代收公電費 P[15]修繕備註
+// N[13]下次收租年月 O[14]代收公電費 P[15]修繕履歷 Q[16]租客基本資料備註
 function getPendingRooms() {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const roomData = ss.getSheetByName('Rooms').getDataRange().getValues();
@@ -325,7 +325,7 @@ function submitMeterReading(data) {
 
     rSheet.getRange(tIndex, 11).setValue(data.currentReading);  // K: 上期度數
     rSheet.getRange(tIndex, 12).setValue(newPrepaidRentBal);     // L: 預繳租金餘額
-    if (rSheet.getMaxColumns() < 16) rSheet.insertColumnsAfter(rSheet.getMaxColumns(), 16 - rSheet.getMaxColumns());
+    if (rSheet.getMaxColumns() < 17) rSheet.insertColumnsAfter(rSheet.getMaxColumns(), 17 - rSheet.getMaxColumns());
     rSheet.getRange(tIndex, 13).setValue(newBillBal);            // M: 帳款結餘
     rSheet.getRange(tIndex, 15).clearContent();                  // O: 代收公電費清除
 
@@ -470,7 +470,7 @@ function confirmPayment(payload) {
         if (diff !== 0) {
           const rSheet = ss.getSheetByName('Rooms');
           const rData = rSheet.getDataRange().getValues();
-          if (rSheet.getMaxColumns() < 16) rSheet.insertColumnsAfter(rSheet.getMaxColumns(), 16 - rSheet.getMaxColumns());
+          if (rSheet.getMaxColumns() < 17) rSheet.insertColumnsAfter(rSheet.getMaxColumns(), 17 - rSheet.getMaxColumns());
           for (let r = 1; r < rData.length; r++) {
             if (String(rData[r][0]) === String(bData[i][2])) {
               // 溢繳或少繳金額，寫入 M 欄 (帳款結餘, index12)
@@ -579,9 +579,8 @@ function getAllRoomsInfo() {
       lastReading: Number(data[i][10]) || 0,     // K
       balance:     Number(data[i][11]) || 0,     // L: 預繳租金餘額
       billBalance: Number(data[i][12]) || 0,     // M: 帳款結餘
-      notes:       String(data[i][15] || ''),    // P: 修繕備註
-      remark:      String(data[i][16] || '')     // Q: 租客備註（顯示於卡片）
-      remark:      String(data[i][16] || '')     // Q: 租客備註
+      notes:       String(data[i][15] || ''),    // P: 修繕履歷
+      remark:      String(data[i][16] || '')     // Q: 租客基本資料備註
     });
   } return rooms;
 }
@@ -592,7 +591,7 @@ function saveTenantInfo(payload) {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const rSheet = ss.getSheetByName('Rooms');
     const data = rSheet.getDataRange().getValues();
-    if (rSheet.getMaxColumns() < 16) rSheet.insertColumnsAfter(rSheet.getMaxColumns(), 16 - rSheet.getMaxColumns());
+    if (rSheet.getMaxColumns() < 17) rSheet.insertColumnsAfter(rSheet.getMaxColumns(), 17 - rSheet.getMaxColumns());
 
     for (let i = 1; i < data.length; i++) {
       if (String(data[i][0]) === payload.roomId) {
@@ -600,7 +599,7 @@ function saveTenantInfo(payload) {
         let rowValues = data[i];
         // 新欄位順序: A[0]房號 B[1]租客 C[2]狀態 D[3]起始日 E[4]到期日
         // F[5]租金 G[6]押金 H[7]收款週期 I[8]電費單價 J[9]固定水費
-        // K[10]上期度數 L[11]預繳餘額 M[12]帳款結餘 N[13]下次收租月 O[14]代收公電 P[15]備註
+        // K[10]上期度數 L[11]預繳餘額 M[12]帳款結餘 N[13]下次收租年月 O[14]代收公電 P[15]修繕履歷 Q[16]租客備註
         rowValues[1]  = payload.tenant;
         rowValues[2]  = payload.status;
         rowValues[3]  = payload.startDate || rowValues[3] || ''; // D: 合約起始日
@@ -611,12 +610,10 @@ function saveTenantInfo(payload) {
         rowValues[8]  = Number(payload.elecRate) || 0;           // I: 電費單價
         rowValues[9]  = Number(payload.waterFee) || 0;           // J: 固定水費
         rowValues[11] = Number(payload.balance) || 0;            // L: 預繳租金餘額
-        rowValues[15] = payload.notes  || '';  // P: 修繕備註
         while(rowValues.length < 17) rowValues.push("");
-        rowValues[16] = payload.remark || '';  // Q: 租客備註（顯示於卡片）
-
-        while(rowValues.length < 16) rowValues.push("");
         rowValues[12] = Number(payload.billBalance) || 0;        // M: 帳款結餘
+        rowValues[15] = payload.notes  || '';  // P: 修繕履歷
+        rowValues[16] = payload.remark || '';  // Q: 租客基本資料備註
 
         // ★ 空房判斷：空字串或 '空房' 都算空房
         const wasEmpty = (oldStatus === '空房' || oldStatus.trim() === '');
