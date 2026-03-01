@@ -119,9 +119,14 @@
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-stone-600 mb-2">拍攝或選取電表照片</label>
-              <input type="file" id="photoInput" accept="image/*" class="block w-full text-xs text-stone-500 file:mr-2 file:py-1.5 file:px-3 file:border-0 file:bg-stone-100 hover:file:bg-stone-200" required>
-              <img id="previewImg" class="mt-3 max-h-40 object-cover hidden border border-stone-200 w-full rounded">
+              <label class="block text-sm font-medium text-stone-600 mb-2">電表照片</label>
+              <div class="flex gap-2 mb-2">
+                <button type="button" onclick="document.getElementById('photoInputCamera').click()" class="flex-1 bg-stone-800 hover:bg-stone-700 text-white py-2.5 rounded text-sm font-medium transition-colors">📷 拍攝</button>
+                <button type="button" onclick="document.getElementById('photoInputGallery').click()" class="flex-1 bg-stone-100 hover:bg-stone-200 text-stone-700 py-2.5 rounded text-sm font-medium border border-stone-200 transition-colors">🖼️ 圖庫</button>
+              </div>
+              <input type="file" id="photoInputCamera" accept="image/*" capture="camera" class="hidden">
+              <input type="file" id="photoInputGallery" accept="image/*" class="hidden">
+              <img id="previewImg" class="mt-2 max-h-40 object-cover hidden border border-stone-200 w-full rounded">
             </div>
             <div>
               <label class="block text-sm font-medium text-stone-600 mb-2">本次度數</label>
@@ -313,7 +318,7 @@
         <!-- 統計卡片 -->
         <div class="grid grid-cols-3 gap-2" id="reportStatCards">
           <div class="bg-stone-50 border border-stone-200 p-3 rounded text-center">
-            <p class="text-[10px] text-stone-500 mb-1">本年度收入</p>
+            <p class="text-[10px] text-stone-500 mb-1" id="rptYearTotalLabel">本年度收入</p>
             <p class="text-lg font-bold text-stone-800" id="rptYearTotal">-</p>
           </div>
           <div class="bg-stone-50 border border-stone-200 p-3 rounded text-center">
@@ -321,7 +326,7 @@
             <p class="text-lg font-bold text-stone-500" id="rptLastYearTotal">-</p>
           </div>
           <div class="bg-stone-50 border border-stone-200 p-3 rounded text-center">
-            <p class="text-[10px] text-stone-500 mb-1">月平均</p>
+            <p class="text-[10px] text-stone-500 mb-1" id="rptMonthAvgLabel">月平均</p>
             <p class="text-lg font-bold text-stone-800" id="rptMonthAvg">-</p>
           </div>
         </div>
@@ -792,12 +797,12 @@
         
       } else if (tab === 'report') {
         document.getElementById('reportSection').classList.remove('hidden');
-        document.getElementById('tabReport').className = activeClass;
+        const rBtn = document.getElementById('tabReport'); if (rBtn) rBtn.className = activeClass;
         document.getElementById('headerTitle').innerText = '收款報表';
         if (!cacheStatus.report) { initReportYear(); cacheStatus.report = true; }
       } else if (tab === 'settings') {
         document.getElementById('settingsSection').classList.remove('hidden');
-        document.getElementById('tabSettings').className = activeClass;
+        const sBtn = document.getElementById('tabSettings'); if (sBtn) sBtn.className = activeClass;
         document.getElementById('headerTitle').innerText = '系統設定';
         if (!cacheStatus.settings) { loadSettings(); cacheStatus.settings = true; }
       }
@@ -885,25 +890,27 @@
   compressedImageBase64 = "";
 }
 
-    document.getElementById('photoInput').addEventListener('change', function(e) { 
-      const file = e.target.files[0]; 
-      if (!file) return; 
-      const reader = new FileReader(); 
-      reader.onload = function(event) { 
-        const img = new Image(); 
-        img.onload = function() { 
-          const canvas = document.createElement('canvas'); 
-          canvas.width = 800; 
-          canvas.height = img.height * (800 / img.width); 
-          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height); 
-          compressedImageBase64 = canvas.toDataURL('image/jpeg', 0.7); 
-          document.getElementById('previewImg').src = compressedImageBase64; 
-          document.getElementById('previewImg').classList.remove('hidden'); 
-        }; 
-        img.src = event.target.result; 
-      }; 
-      reader.readAsDataURL(file); 
-    });
+    function handlePhotoInput(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          canvas.width = 800;
+          canvas.height = img.height * (800 / img.width);
+          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+          compressedImageBase64 = canvas.toDataURL('image/jpeg', 0.7);
+          document.getElementById('previewImg').src = compressedImageBase64;
+          document.getElementById('previewImg').classList.remove('hidden');
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+    document.getElementById('photoInputCamera').addEventListener('change', handlePhotoInput);
+    document.getElementById('photoInputGallery').addEventListener('change', handlePhotoInput);
 // === 修正後的抄表送出與 UI 完整重置邏輯 (Index.html) ===
 document.getElementById('meterForm').addEventListener('submit', function(e) { 
   e.preventDefault(); 
@@ -941,7 +948,8 @@ document.getElementById('meterForm').addEventListener('submit', function(e) {
         
         // 1. 先重置所有輸入欄位與圖片狀態 (解決按鈕卡住與圖片未清空)
         document.getElementById('currentReading').value = '';
-        document.getElementById('photoInput').value = '';
+        document.getElementById('photoInputCamera').value = '';
+        document.getElementById('photoInputGallery').value = '';
         const preview = document.getElementById('previewImg');
         if (preview) {
           preview.src = '';
@@ -1880,50 +1888,50 @@ function applyTenantFilter() {
       : "bg-stone-50 border border-dashed border-stone-300 opacity-80";
 
     // ★ 優化 2：將週期與餘額直接顯示在卡片上
-    const cycleText = r.payCycle ? `<span class="text-[10px] bg-white text-stone-600 px-1.5 py-0.5 rounded border border-stone-200 shadow-sm">${r.payCycle}繳</span>` : '';
-    const balanceText = (r.balance && r.balance > 0) ? `<span class="text-[10px] text-[#075985] font-bold bg-blue-50 px-1.5 py-0.5 rounded">餘額: $${fmtNum(r.balance)}</span>` : '';
+    const cycleText = r.payCycle ? `<span class="text-[9px] bg-white text-stone-600 px-1 py-0.5 rounded border border-stone-200">${r.payCycle}繳</span>` : '';
+    const balanceText = (r.balance && r.balance > 0) ? `<span class="text-[9px] text-[#075985] font-bold bg-blue-50 px-1 py-0.5 rounded">餘:$${fmtNum(r.balance)}</span>` : '';
 
-    // ★ 優化 3：排版資訊區塊
+    // ★ 優化 3：排版資訊區塊（緊湊版）
     let tenantInfoHtml = isRented
       ? `
-        <div class="mt-3 text-sm flex justify-between items-center bg-stone-50 p-2.5 rounded border border-stone-100">
-          <div class="flex flex-col gap-1">
-            <div class="text-stone-800 font-bold">$${fmtNum(r.rent)} <span class="text-[10px] font-normal text-stone-500">/ 期</span></div>
-            <div class="text-[10px] text-stone-500">合約至: ${r.endDate}</div>
+        <div class="mt-1.5 flex justify-between items-center bg-stone-50 px-2 py-1.5 rounded border border-stone-100">
+          <div class="flex flex-col gap-0.5">
+            <div class="text-stone-800 font-bold text-sm">$${fmtNum(r.rent)} <span class="text-[9px] font-normal text-stone-500">/ 期</span></div>
+            <div class="text-[9px] text-stone-400">至: ${r.endDate}</div>
           </div>
-          <div class="flex flex-col items-end gap-1.5">
+          <div class="flex flex-col items-end gap-1">
             ${cycleText}
             ${balanceText}
           </div>
         </div>
       `
-      : `<div class="mt-3 text-sm text-center py-4 bg-stone-100 rounded text-stone-400 border border-stone-200 border-dashed">目前無人承租</div>`;
+      : `<div class="mt-1.5 text-xs text-center py-2 bg-stone-100 rounded text-stone-400 border border-dashed border-stone-200">無租客</div>`;
 
-    // ★ 優化 4：按鈕區塊等寬滿版對齊
+    // ★ 優化 4：按鈕區塊緊湊
     const buttonsHtml = isRented
       ? `
-        <button onclick="openHistoryModal('${r.roomId}')" class="flex-1 text-[#075985] bg-blue-50 py-2 rounded text-xs border border-blue-200 hover:bg-blue-100 font-medium transition-colors">📜 帳單</button>
-        <button onclick="openRenewModal('${tntStr}')" class="flex-1 text-[#166534] bg-green-50 py-2 rounded text-xs border border-green-200 hover:bg-green-100 font-medium transition-colors">📝 續約</button>
-        <button onclick="openTenantModal('${tntStr}')" class="flex-1 text-stone-600 bg-stone-100 py-2 rounded text-xs border border-stone-200 hover:bg-stone-200 font-medium transition-colors">✏️ 設定</button>
+        <button onclick="openHistoryModal('${r.roomId}')" class="flex-1 text-[#075985] bg-blue-50 py-1.5 rounded text-[11px] border border-blue-200 hover:bg-blue-100 font-medium transition-colors">📜 帳單</button>
+        <button onclick="openRenewModal('${tntStr}')" class="flex-1 text-[#166534] bg-green-50 py-1.5 rounded text-[11px] border border-green-200 hover:bg-green-100 font-medium transition-colors">📝 續約</button>
+        <button onclick="openTenantModal('${tntStr}')" class="flex-1 text-stone-600 bg-stone-100 py-1.5 rounded text-[11px] border border-stone-200 hover:bg-stone-200 font-medium transition-colors">✏️ 設定</button>
       `
       : `
-        <button onclick="openTenantModal('${tntStr}')" class="w-full text-stone-600 bg-white py-2 rounded text-xs border border-stone-300 hover:bg-stone-100 font-bold shadow-sm transition-colors">➕ 新增租客</button>
+        <button onclick="openTenantModal('${tntStr}')" class="w-full text-stone-600 bg-white py-1.5 rounded text-[11px] border border-stone-300 hover:bg-stone-100 font-bold transition-colors">➕ 新增租客</button>
       `;
 
     html += `
-      <div class="${cardStyle} p-4 rounded-lg flex flex-col justify-between">
+      <div class="${cardStyle} p-3 rounded-lg flex flex-col justify-between">
         <div>
-          <div class="flex justify-between items-start mb-1.5">
-            <div class="flex items-center gap-2">
-              <span class="font-bold text-stone-800 text-xl tracking-wide">${r.roomId}</span>
+          <div class="flex justify-between items-center mb-0.5">
+            <div class="flex items-center gap-1.5">
+              <span class="font-bold text-stone-800 text-base tracking-wide">${r.roomId}</span>
               ${badge}
             </div>
             ${expireWarning}
           </div>
-          <div class="text-stone-600 font-medium text-sm ml-0.5">${isRented ? r.tenant : '-'}${isRented && r.remark ? `<span class="text-[11px] text-stone-400 font-normal ml-1.5">(${r.remark})</span>` : ''}</div>
+          <div class="text-stone-600 font-medium text-xs ml-0.5 truncate">${isRented ? r.tenant : '-'}${isRented && r.remark ? `<span class="text-[10px] text-stone-400 font-normal ml-1">(${r.remark})</span>` : ''}</div>
           ${tenantInfoHtml}
         </div>
-        <div class="flex gap-2 mt-4 pt-4 border-t border-stone-100">
+        <div class="flex gap-1.5 mt-2.5 pt-2 border-t border-stone-100">
           ${buttonsHtml}
         </div>
       </div>`;
@@ -1931,7 +1939,7 @@ function applyTenantFilter() {
 
   // ★ 優化 5：將單欄清單改為響應式網格 (手機 1 欄，電腦 2 欄)
   const container = document.getElementById('tenantContainer');
-  container.className = "grid grid-cols-1 md:grid-cols-2 gap-4";
+  container.className = "grid grid-cols-1 md:grid-cols-2 gap-2.5";
   container.innerHTML = html || '<p class="text-stone-400 text-center py-10 text-sm col-span-full">無符合結果</p>';
 }
 
@@ -2301,6 +2309,27 @@ function reprintBill(hStr) {
       const months = filterMonth
         ? d.months.filter(ym => ym.endsWith('-' + filterMonth))
         : d.months;
+
+      // 動態更新統計卡片
+      let filteredPaid = 0, filteredAmt = 0;
+      months.forEach(ym => {
+        const s = d.monthSummary[ym] || {};
+        filteredPaid += (s.sumPaid || 0);
+        filteredAmt += (s.sumPaid || 0) + (s.sumUnpaid || 0);
+      });
+      if (filterMonth) {
+        document.getElementById('rptYearTotalLabel').innerText = parseInt(filterMonth) + ' 月已收';
+        document.getElementById('rptYearTotal').innerText = '$' + filteredPaid.toLocaleString();
+        document.getElementById('rptMonthAvgLabel').innerText = '本月應收';
+        document.getElementById('rptMonthAvg').innerText = '$' + filteredAmt.toLocaleString();
+      } else {
+        const avg = months.length > 0 ? Math.round(filteredPaid / months.length) : 0;
+        document.getElementById('rptYearTotalLabel').innerText = '本年度收入';
+        document.getElementById('rptYearTotal').innerText = '$' + filteredPaid.toLocaleString();
+        document.getElementById('rptMonthAvgLabel').innerText = '月平均';
+        document.getElementById('rptMonthAvg').innerText = '$' + avg.toLocaleString();
+      }
+
       if (months.length === 0) {
         document.getElementById('reportTableWrap').innerHTML =
           '<p class="text-stone-400 text-center py-10 text-sm">該月份無資料</p>';
@@ -2352,14 +2381,10 @@ function reprintBill(hStr) {
       google.script.run
         .withSuccessHandler(statsRes => {
           if (statsRes.success) {
-            const d = statsRes.data;
-            document.getElementById('rptYearTotal').innerText = '$' + (d.yearTotal || 0).toLocaleString();
-            document.getElementById('rptLastYearTotal').innerText = '$' + (d.lastYearTotal || 0).toLocaleString();
-            const avg = d.yearCount > 0 ? Math.round(d.yearTotal / Math.min(new Date().getMonth() + 1, 12)) : 0;
-            document.getElementById('rptMonthAvg').innerText = '$' + avg.toLocaleString();
+            document.getElementById('rptLastYearTotal').innerText = '$' + (statsRes.data.lastYearTotal || 0).toLocaleString();
           }
         })
-        .withFailureHandler(err => showAlert('統計載入失敗：' + err.message, 'red'))
+        .withFailureHandler(err => {})
         .getReportData({});
 
       google.script.run

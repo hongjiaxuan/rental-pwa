@@ -5,7 +5,7 @@
 //   GAS API 呼叫（script.google.com）→ Network Only（永不快取）
 // ═══════════════════════════════════════════════════
 
-const CACHE_NAME = 'rental-mgmt-v3';
+const CACHE_NAME = 'rental-mgmt-v4';
 
 // 預快取的靜態資源
 const STATIC_ASSETS = [
