@@ -1,0 +1,41 @@
+{
+  "name": "套房管理系統",
+  "short_name": "套房管理",
+  "description": "抄表、帳單、對帳、租客管理一站搞定",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f9f9f8",
+  "theme_color": "#292524",
+  "lang": "zh-TW",
+  "categories": ["utilities", "productivity"],
+  "icons": [
+    {
+      "src": "icon/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "抄表登記",
+      "short_name": "抄表",
+      "url": "./index.html#meter",
+      "description": "快速登記本月電表度數"
+    },
+    {
+      "name": "帳單管理",
+      "short_name": "帳單",
+      "url": "./index.html#billing",
+      "description": "查看待繳帳單與對帳"
+    }
+  ]
+}

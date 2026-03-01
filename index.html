@@ -1,0 +1,2065 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="套房管理">
+  <meta name="theme-color" content="#292524">
+  <meta name="description" content="套房管理系統 - 抄表、帳單、對帳一站搞定">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="icons/icon-512.png">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <!-- Service Worker -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
+  </script>
+  <style>
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    input:focus, select:focus { outline: none; border-color: #57534e; box-shadow: 0 0 0 1px #57534e; }
+    .modal-bg { background-color: rgba(0,0,0,0.5); }
+  </style>
+</head>
+<body class="bg-[#f9f9f8] text-stone-800 antialiased font-sans pb-24">
+  <div class="w-full md:max-w-3xl lg:max-w-4xl mx-auto bg-white min-h-screen shadow-sm relative border-x border-stone-200">
+    
+    <header class="bg-stone-800 text-[#f9f9f8] p-4 sticky top-0 z-20 flex justify-between items-center shadow-md">
+      <h1 class="text-xl font-medium tracking-wide" id="headerTitle">套房管理</h1>
+    </header>
+
+    <main class="p-4">
+      <div id="statusAlert" class="hidden mb-4 p-3 rounded text-sm font-medium text-center"></div>
+<div id="dashboardSection" class="hidden space-y-4">
+        <div class="flex justify-between items-end mb-2 border-b border-stone-200 pb-2">
+          <h2 class="text-xl font-bold text-stone-800">營運總覽</h2>
+          <button onclick="loadDashboard()" class="text-xs bg-stone-100 px-3 py-1.5 text-stone-600 border border-stone-200 rounded shadow-sm">重新整理</button>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-red-50 border border-red-100 p-4 rounded shadow-sm cursor-pointer hover:bg-red-100 transition-colors" onclick="switchTab('billing')">
+            <p class="text-xs text-red-700 font-bold mb-1">🔴 待收帳款 (<span id="dbUnpaidCount">0</span> 筆)</p>
+            <p class="text-2xl font-bold text-red-700">$<span id="dbUnpaidTotal">0</span></p>
+          </div>
+          <div class="bg-green-50 border border-green-100 p-4 rounded shadow-sm cursor-pointer hover:bg-green-100 transition-colors" onclick="switchTab('billing')">
+            <p class="text-xs text-[#166534] font-bold mb-1">🟢 待退帳款 (<span id="dbRefundCount">0</span> 筆)</p>
+            <p class="text-2xl font-bold text-[#166534]">$<span id="dbRefundTotal">0</span></p>
+          </div>
+        </div>
+
+        <div class="bg-white border border-stone-200 p-4 rounded shadow-sm mt-2">
+          <h3 class="text-sm font-bold text-stone-700 mb-3 border-b pb-2">🏠 房源出租狀況</h3>
+          <div class="flex justify-around text-center cursor-pointer hover:bg-stone-50 transition-colors rounded p-2" onclick="switchTab('tenant')">
+            <div>
+              <p class="text-xs text-stone-500 mb-1">總房數</p>
+              <p class="text-xl font-bold text-stone-800" id="dbTotalRooms">0</p>
+            </div>
+            <div class="border-l border-stone-200 pl-4">
+              <p class="text-xs text-[#075985] font-bold mb-1">出租中</p>
+              <p class="text-xl font-bold text-[#075985]" id="dbRentedRooms">0</p>
+            </div>
+            <div class="border-l border-stone-200 pl-4">
+              <p class="text-xs text-stone-500 mb-1">空房</p>
+              <p class="text-xl font-bold text-stone-500" id="dbEmptyRooms">0</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white border border-stone-200 p-4 rounded shadow-sm mt-2">
+          <h3 class="text-sm font-bold text-stone-700 mb-3 border-b pb-2">📋 系統提醒事項</h3>
+          <ul class="space-y-2 text-sm">
+            <li class="flex justify-between items-center cursor-pointer hover:bg-stone-50 p-2 rounded border border-transparent hover:border-stone-200 transition-colors" onclick="switchTab('tenant')">
+              <span class="text-stone-600">合約已過期</span>
+              <span class="bg-red-100 text-red-700 font-bold px-2 py-0.5 rounded text-xs" id="dbExpiredCount">0 戶</span>
+            </li>
+            <li class="flex justify-between items-center cursor-pointer hover:bg-stone-50 p-2 rounded border border-transparent hover:border-stone-200 transition-colors" onclick="switchTab('tenant')">
+              <span class="text-stone-600">30天內將到期</span>
+              <span class="bg-yellow-100 text-yellow-700 font-bold px-2 py-0.5 rounded text-xs" id="dbExpiringCount">0 戶</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <div id="meterSection" class="hidden">
+        <div id="meterCard" class="bg-white border border-stone-200 p-5 hidden rounded shadow-sm">
+          <div class="flex justify-between items-center mb-4">
+             <label class="block text-sm font-medium text-stone-600">選擇房號</label>
+             <label class="flex items-center space-x-2 text-sm text-[#075985] font-bold bg-blue-50 px-2 py-1 rounded border border-blue-100">
+               <input type="checkbox" id="mContinuous" class="rounded border-blue-300 text-[#075985]" checked>
+               <span>自動下一戶</span>
+             </label>
+          </div>
+          <form id="meterForm" class="space-y-5">
+            <select id="mRoomSelect" class="w-full px-3 py-2 border border-stone-300 bg-[#f9f9f8] text-lg font-medium" onchange="renderSelectedRoom()" required></select>
+            
+            <div class="flex justify-between items-end border-b border-stone-200 pb-3">
+              <div>
+                <p class="text-stone-400 text-xs mb-1" id="mPrevMonthLabel">上期度數</p>
+                <p class="text-2xl font-light text-stone-800" id="uiLastReading">--</p>
+              </div>
+              <div class="flex flex-col items-end">
+                   <p id="mBalanceLabel" class="text-[10px] text-stone-500 mt-1 hidden">目前餘額: $<span id="mBalanceVal">0</span></p>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-stone-600 mb-2">拍攝電表</label>
+              <input type="file" id="photoInput" accept="image/*" capture="camera" class="block w-full text-xs text-stone-500 file:mr-2 file:py-1.5 file:px-3 file:border-0 file:bg-stone-100 hover:file:bg-stone-200" required>
+              <img id="previewImg" class="mt-3 max-h-40 object-cover hidden border border-stone-200 w-full rounded">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-stone-600 mb-2">本次度數</label>
+              <input type="number" step="0.1" id="currentReading" class="w-full px-4 py-2 border border-stone-300 bg-[#f9f9f8] text-xl font-bold text-center" required>
+            </div>
+            <button type="submit" id="submitBtn" class="w-full bg-stone-800 hover:bg-stone-700 text-white font-medium py-3 text-lg tracking-widest rounded transition-colors">送出</button>
+          </form>
+        </div>
+        <div id="doneScreen" class="hidden text-center py-16"><h2 class="text-2xl font-light text-stone-800 mb-2">本月抄表完成</h2></div>
+      </div>
+
+      <div id="billingSection" class="hidden space-y-3">
+        <div class="sticky top-[60px] z-10 bg-white border-b border-stone-200 pb-3 mb-3 pt-2 shadow-sm">
+          <div class="flex justify-between items-center mb-3 px-1">
+            <div class="text-sm font-bold text-stone-600">批次操作</div>
+            <div class="space-x-1">
+              <button onclick="batchExportInvoices()" class="text-xs bg-[#075985] text-white px-2 py-1.5 rounded shadow-sm" id="btnBatchExport">ZIP 打包</button>
+              <button onclick="loadReconciliation()" class="text-xs bg-stone-100 px-2 py-1.5 text-stone-600 border border-stone-200 rounded shadow-sm">重整</button>
+            </div>
+          </div>
+          <div class="flex gap-2 px-1">
+            <input type="text" id="reconSearch" placeholder="🔍 搜尋房號或租客..." class="flex-[2] px-3 py-2 border border-stone-300 rounded bg-[#f9f9f8] text-sm focus:bg-white shadow-inner" oninput="applyReconFilters()">
+            <select id="reconFilterType" class="flex-[1] px-3 py-2 border border-stone-300 rounded bg-[#f9f9f8] text-sm focus:bg-white shadow-inner" onchange="applyReconFilters()">
+              <option value="all">全部帳款</option>
+              <option value="receivable">🔴 僅應收</option>
+              <option value="payable">🟢 僅應付</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="reconContainer" class="space-y-4"><p class="text-stone-400 text-center py-10 text-sm">載入中...</p></div>
+      </div>
+
+      <div id="taipowerSection" class="hidden">
+        <div class="flex border-b border-stone-200 mb-6">
+          <button onclick="toggleTpMode('input')" id="btnTpInput" class="w-1/2 py-3 text-sm font-medium border-b-2 border-stone-800 text-stone-800">登錄帳單</button>
+          <button onclick="toggleTpMode('refund')" id="btnTpRefund" class="w-1/2 py-3 text-sm font-medium border-b-2 border-transparent text-stone-400">退費結案</button>
+        </div>
+        
+        <div id="tpInputMode">
+          <form id="taipowerForm" class="space-y-5 bg-white border border-stone-200 p-6 rounded shadow-sm">
+            <div>
+              <label class="block text-sm font-medium text-stone-600 mb-2">帳單類型</label>
+              <select id="tpType" class="w-full px-3 py-2 border border-stone-300 bg-[#f9f9f8]" onchange="toggleKwhInput()">
+                <option value="私電">私電 (各樓層合併)</option>
+                <option value="公電">公電 (按天數戶數分攤)</option>
+              </select>
+            </div>
+            <div class="flex gap-4">
+              <div class="w-1/2">
+                <label class="block text-xs font-medium text-stone-600 mb-1">計費起日</label>
+                <input type="date" id="tpStart" class="w-full px-3 py-2 border border-stone-300 bg-[#f9f9f8]" required>
+              </div>
+              <div class="w-1/2">
+                <label class="block text-xs font-medium text-stone-600 mb-1">計費迄日</label>
+                <input type="date" id="tpEnd" class="w-full px-3 py-2 border border-stone-300 bg-[#f9f9f8]" required>
+              </div>
+            </div>
+            <div><label class="block text-sm font-medium text-stone-600 mb-2">總金額</label><input type="number" id="tpAmount" class="w-full px-3 py-2 border border-stone-300 bg-[#f9f9f8]" required></div>
+            <div id="kwhContainer"><label class="block text-sm font-medium text-stone-600 mb-2">總度數</label><input type="number" id="tpKwh" class="w-full px-3 py-2 border border-stone-300 bg-[#f9f9f8]" required></div>
+            <button type="submit" id="tpSubmitBtn" class="w-full bg-stone-800 hover:bg-stone-700 text-white font-medium py-3 mt-4 rounded transition-colors">儲存並試算</button>
+          </form>
+        </div>
+        
+        <div id="tpRefundMode" class="hidden space-y-4">
+          <div id="refundsContainer"><p class="text-stone-400 text-center py-10 text-sm">載入中...</p></div>
+        </div>
+      </div>
+
+      <div id="checkoutSection" class="hidden space-y-3">
+        <div class="flex justify-between items-center mb-2 border-b border-stone-200 pb-2">
+          <h2 class="text-lg font-medium text-stone-800">退租結算作業</h2>
+        </div>
+        <div class="bg-white border border-stone-200 p-5 rounded shadow-sm">
+          <form id="checkoutForm" class="space-y-5">
+            <div>
+              <label class="block text-sm font-medium text-stone-600 mb-2">選擇退租房號</label>
+              <select id="coRoom" class="w-full px-3 py-2 border border-stone-300 bg-[#f9f9f8]" onchange="fetchRoomCheckoutData()" required>
+                <option value="">請選擇...</option>
+              </select>
+            </div>
+            
+              <div id="coDetailsContainer" class="hidden space-y-4">
+                <div class="flex gap-4">
+                  <div class="w-1/2"><label class="block text-xs font-medium text-stone-600 mb-1">退租日期</label><input type="date" id="coDate" class="w-full px-3 py-2 border border-stone-300 bg-[#f9f9f8]" onchange="calcCheckoutTotal()" required></div>
+                  <div class="w-1/2"><label class="block text-xs font-medium text-stone-600 mb-1">最終度數 (上期:<span id="coLastReadingPreview"></span>)</label><input type="number" step="0.1" id="coFinalReading" class="w-full px-3 py-2 border border-stone-300 bg-[#f9f9f8] font-bold text-red-700" oninput="calcCheckoutTotal()" required></div>
+                </div>
+                
+                <div class="bg-stone-100 p-3 border border-stone-200 rounded text-sm text-stone-700"><p>結算電費：<span id="coUsageVal" class="font-bold">0</span> 度 × $<span id="coRateVal">0</span></p><p class="mt-1 text-red-700 font-bold">➔ 預扣最後電費：<span id="coFinalElecVal">$0</span></p></div>
+                
+                <div><label class="block text-xs font-medium text-stone-600 mb-1">押金處理 (原押金：$<span id="coDepositPreview">0</span>)</label><select id="coReason" class="w-full px-3 py-2 border border-stone-300 bg-red-50 text-stone-800 font-medium" onchange="calcCheckoutTotal()"><option value="正常">正常退租 (全額退押)</option><option value="解約">提前解約 (沒收全額押金)</option><option value="抵租">不續約 (押金抵繳末期租金)</option></select><p class="text-[10px] text-stone-500 mt-1" id="coReasonHint"></p></div>
+                
+                <div class="bg-blue-50/50 p-4 border border-blue-200 rounded">
+                  <h3 class="text-sm font-bold text-[#075985] mb-2">⚡ 歷史電費多退少補 (系統結算)</h3>
+                  <p class="text-xs text-stone-600 mb-1">已覆蓋台電帳單：<span id="coCalcDays" class="font-bold">0</span> 天</p>
+                  <p class="text-xs text-stone-600 mb-3">尚未覆蓋天數：<span id="coMissDays" class="font-bold text-red-600">0</span> 天 (將列入待結算)</p>
+                  <div class="flex justify-between items-center border-t border-blue-200 pt-2"><span class="text-xs font-medium text-stone-600">本次當下可退還</span><span class="text-lg font-bold text-[#075985]" id="coTpRefundPreview" data-amt="0">+$0</span></div>
+                </div>
+                
+                <div><label class="block text-xs font-medium text-stone-600 mb-1">其他額外扣款 (清潔/維修)</label><input type="number" id="coDeductions" class="w-full px-3 py-2 border border-stone-300 bg-[#f9f9f8]" value="0" oninput="calcCheckoutTotal()" required></div>
+                
+                <div class="border-t border-stone-200 pt-3 mt-2 flex justify-between items-center"><span class="text-stone-800 font-bold">實退總額</span><span class="text-2xl font-bold text-[#166534]" id="coRefundPreview">$0</span></div>
+                <button type="submit" id="coSubmitBtn" class="w-full bg-[#991b1b] text-white font-medium py-3 mt-4 rounded">結算並產出單據</button>
+              </div>
+          </form>
+        </div>
+      </div>
+      <div id="tenantSection" class="hidden space-y-3">
+        <div class="sticky top-[60px] z-10 bg-white border-b border-stone-200 pb-3 mb-3 pt-2 shadow-sm">
+          <div class="flex justify-between items-center mb-3 px-1">
+            <div class="text-sm font-bold text-stone-600">快速搜尋</div>
+            <button onclick="loadTenants()" class="text-xs bg-stone-100 px-3 py-1.5 text-stone-600 border border-stone-200 rounded shadow-sm">重新整理</button>
+          </div>
+          <div class="flex gap-2 px-1">
+            <input type="text" id="tenantSearch" placeholder="🔍 搜尋房號或租客..." class="w-full px-3 py-2 border border-stone-300 rounded bg-[#f9f9f8] text-sm focus:bg-white shadow-inner" oninput="applyTenantFilter()">
+          </div>
+        </div>
+
+        <div id="tenantContainer" class="space-y-3"><p class="text-stone-400 text-center py-10 text-sm">載入中...</p></div>
+      </div>
+      <!-- ★ 設定頁 -->
+      <div id="settingsSection" class="hidden space-y-4">
+        <div class="border-b border-stone-200 pb-2 mb-2">
+          <h2 class="text-lg font-bold text-stone-800">系統設定</h2>
+        </div>
+
+        <!-- 銀行資料 -->
+        <div class="bg-white border border-stone-200 rounded-lg p-4 shadow-sm">
+          <h3 class="text-sm font-bold text-stone-700 mb-3 border-b pb-2">🏦 銀行收款資料</h3>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-xs text-stone-500 mb-1">銀行名稱</label>
+              <input id="cfgBankName" type="text" class="w-full px-3 py-2 border border-stone-200 rounded-lg bg-stone-50 text-sm" placeholder="例：中國信託 (822) 鳳山分行">
+            </div>
+            <div>
+              <label class="block text-xs text-stone-500 mb-1">帳號</label>
+              <input id="cfgBankAccount" type="text" class="w-full px-3 py-2 border border-stone-200 rounded-lg bg-stone-50 text-sm" placeholder="例：123-4567-89012">
+            </div>
+            <div>
+              <label class="block text-xs text-stone-500 mb-1">戶名</label>
+              <input id="cfgBankUser" type="text" class="w-full px-3 py-2 border border-stone-200 rounded-lg bg-stone-50 text-sm" placeholder="例：王小明">
+            </div>
+            <div>
+              <label class="block text-xs text-stone-500 mb-1">繳款寬限天數（帳單產出後幾天到期）</label>
+              <input id="cfgDeadlineDays" type="number" min="1" max="30" class="w-full px-3 py-2 border border-stone-200 rounded-lg bg-stone-50 text-sm" placeholder="5">
+            </div>
+          </div>
+        </div>
+
+        <!-- 其他設定 -->
+        <div class="bg-white border border-stone-200 rounded-lg p-4 shadow-sm">
+          <h3 class="text-sm font-bold text-stone-700 mb-3 border-b pb-2">⚙️ 其他參數</h3>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-xs text-stone-500 mb-1">房東名稱（顯示於單據）</label>
+              <input id="cfgOwnerName" type="text" class="w-full px-3 py-2 border border-stone-200 rounded-lg bg-stone-50 text-sm">
+            </div>
+            <div>
+              <label class="block text-xs text-stone-500 mb-1">單據底部備註</label>
+              <input id="cfgSystemNote" type="text" class="w-full px-3 py-2 border border-stone-200 rounded-lg bg-stone-50 text-sm" placeholder="如有疑問請聯繫房東">
+            </div>
+          </div>
+        </div>
+
+        <button onclick="submitSettings(this)" id="cfgSubmitBtn" class="w-full bg-stone-800 hover:bg-stone-700 text-white font-medium py-3 rounded-lg transition-colors">儲存所有設定</button>
+        <p class="text-[11px] text-stone-400 text-center">設定儲存於 Google Sheets 的 Settings 工作表</p>
+
+        <!-- API 連線管理 -->
+        <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
+          <h3 class="text-sm font-bold text-amber-800 mb-2">🔗 API 連線管理</h3>
+          <p class="text-xs text-amber-700 mb-1">目前連線網址：</p>
+          <p id="cfgCurrentUrl" class="text-[10px] font-mono text-amber-900 break-all mb-3 bg-amber-100 rounded p-2">(載入中...)</p>
+          <button onclick="resetApiUrl()" class="w-full text-xs bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300 py-2 rounded-lg font-medium transition-colors">🔄 重設 API 連線網址</button>
+          <p class="text-[10px] text-amber-600 mt-1">重設後需重新整理頁面，再次輸入 Apps Script URL</p>
+        </div>
+      </div>
+    </main>
+
+<nav class="fixed bottom-0 w-full md:max-w-3xl lg:max-w-4xl bg-white border-t border-stone-200 flex justify-around p-1 z-30 left-1/2 transform -translate-x-1/2" style="padding-bottom:env(safe-area-inset-bottom)">
+      <button onclick="switchTab('dashboard')" id="tabDashboard" class="flex flex-col items-center py-1.5 px-0.5 text-stone-400 flex-1 gap-0.5">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+        <span class="text-[9px] font-medium">首頁</span>
+      </button>
+      <button onclick="switchTab('meter')" id="tabMeter" class="flex flex-col items-center py-1.5 px-0.5 text-stone-400 flex-1 gap-0.5">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+        <span class="text-[9px] font-medium">抄表</span>
+      </button>
+      <button onclick="switchTab('billing')" id="tabBilling" class="flex flex-col items-center py-1.5 px-0.5 text-stone-400 flex-1 gap-0.5">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2zM10 8.5a.5.5 0 11-1 0 .5.5 0 011 0zm5 5a.5.5 0 11-1 0 .5.5 0 011 0z"/></svg>
+        <span class="text-[9px] font-medium">對帳</span>
+      </button>
+      <button onclick="switchTab('taipower')" id="tabTaipower" class="flex flex-col items-center py-1.5 px-0.5 text-stone-400 flex-1 gap-0.5">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        <span class="text-[9px] font-medium">台電</span>
+      </button>
+      <button onclick="switchTab('checkout')" id="tabCheckout" class="flex flex-col items-center py-1.5 px-0.5 text-stone-400 flex-1 gap-0.5">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+        <span class="text-[9px] font-medium">退租</span>
+      </button>
+      <button onclick="switchTab('tenant')" id="tabTenant" class="flex flex-col items-center py-1.5 px-0.5 text-stone-400 flex-1 gap-0.5">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+        <span class="text-[9px] font-medium">租客</span>
+      </button>
+      <button onclick="switchTab('settings')" id="tabSettings" class="flex flex-col items-center py-1.5 px-0.5 text-stone-400 flex-1 gap-0.5">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <span class="text-[9px] font-medium">設定</span>
+      </button>
+    </nav>
+<div id="modalEdit" class="hidden fixed inset-0 modal-bg z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded p-5 w-full max-w-sm max-h-[80vh] overflow-y-auto">
+        <h3 class="font-bold text-lg mb-4 text-stone-800 border-b pb-2">修改當期帳單</h3>
+        <p class="text-xs text-stone-500 mb-4">房號：<span id="modEditRoom" class="font-bold text-stone-800"></span></p>
+        <input type="hidden" id="modEditBillId">
+        <div class="space-y-3 mb-6 text-sm">
+          <div><label class="block text-stone-600 mb-1">正確本次度數</label><input type="number" step="0.1" id="modEditReading" class="w-full px-3 py-2 border border-stone-300 bg-[#f9f9f8] rounded"></div>
+          <div class="flex gap-2">
+            <div class="w-1/2"><label class="block text-stone-600 mb-1">本期租金</label><input type="number" id="modEditRent" class="w-full px-3 py-2 border border-stone-300 bg-[#f9f9f8] rounded"></div>
+            <div class="w-1/2"><label class="block text-stone-600 mb-1">本期水費</label><input type="number" id="modEditWater" class="w-full px-3 py-2 border border-stone-300 bg-[#f9f9f8] rounded"></div>
+          </div>
+          <div class="border-t border-stone-200 pt-3">
+            <label class="block text-[#075985] font-bold mb-1">自訂加扣款 <span class="text-xs font-normal text-stone-500">(正數為加收, 負數為減免)</span></label>
+            <input type="number" id="modEditExtra" class="w-full px-3 py-2 border border-stone-300 bg-blue-50 rounded mb-2" placeholder="例如：1000">
+            <label class="block text-stone-600 mb-1">加扣款備註</label>
+            <input type="text" id="modEditNote" class="w-full px-3 py-2 border border-stone-300 bg-[#f9f9f8] rounded" placeholder="例如：補收押金、維修補貼...">
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="document.getElementById('modalEdit').classList.add('hidden')" class="flex-1 bg-stone-200 py-2 rounded text-stone-700 text-sm">取消</button>
+          <button onclick="submitEditBill()" class="flex-1 bg-stone-800 py-2 rounded text-white text-sm">儲存並重算</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="modalTenant" class="hidden fixed inset-0 modal-bg z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto">
+        <h3 class="font-bold text-lg mb-4 text-stone-800 border-b pb-2">設定租客與合約</h3>
+        <p class="text-xs text-stone-500 mb-4">房號：<span id="modTenantRoom" class="font-bold text-stone-800"></span></p>
+        <div class="space-y-3 mb-6 text-sm">
+          <div><label class="block text-stone-600 mb-1">狀態</label><select id="modTntStatus" class="w-full px-3 py-2 border border-stone-300 bg-[#f9f9f8] rounded"><option value="出租中">出租中</option><option value="空房">空房</option></select></div>
+          <div><label class="block text-stone-600 mb-1">租客姓名</label><input type="text" id="modTntName" class="w-full px-3 py-2 border border-stone-300 bg-[#f9f9f8] rounded"></div>
+          <div><label class="block text-stone-600 mb-1">合約到期日</label><input type="date" id="modTntEndDate" class="w-full px-3 py-2 border border-stone-300 bg-[#f9f9f8] rounded"></div>
+          <div class="flex gap-2">
+            <div class="w-1/2"><label class="block text-stone-600 mb-1">基本租金</label><input type="number" id="modTntRent" class="w-full px-3 py-2 border border-stone-300 bg-[#f9f9f8] rounded"></div>
+            <div class="w-1/2"><label class="block text-stone-600 mb-1">總押金</label><input type="number" id="modTntDeposit" class="w-full px-3 py-2 border border-stone-300 bg-[#f9f9f8] rounded"></div>
+          </div>  
+          <div class="grid grid-cols-2 gap-2 mt-3">
+            <div>
+              <label class="block text-stone-600 mb-1">收款週期</label>
+              <select id="modTntCycle" class="w-full px-3 py-2 border border-stone-300 bg-[#fef2f2] rounded font-bold text-red-700">
+                <option value="每月">每月 (1個月)</option>
+                <option value="半年">半年 (6個月)</option>
+                <option value="年收">年收 (12個月)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-stone-600 mb-1">初始度數</label>
+              <input type="number" id="modTntInitRead" class="w-full px-3 py-2 border border-stone-300 bg-[#f9f9f8] rounded" placeholder="入住度數">
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <div class="w-1/2"><label class="block text-stone-600 mb-1">電費單價</label><input type="number" step="0.1" id="modTntElec" class="w-full px-3 py-2 border border-stone-300 bg-[#f9f9f8] rounded"></div>
+            <div class="w-1/2"><label class="block text-stone-600 mb-1">固定水費</label><input type="number" id="modTntWater" class="w-full px-3 py-2 border border-stone-300 bg-[#f9f9f8] rounded"></div>
+          </div>
+          <div class="grid grid-cols-2 gap-2 mt-3">
+            <div>
+              <label class="block text-[#075985] font-bold mb-1">預繳租金 (僅扣租金)</label>
+              <input type="number" id="modTntBalance" class="w-full px-3 py-2 border border-blue-300 bg-blue-50 rounded" placeholder="預繳租金">
+            </div>
+            <div>
+              <label class="block text-stone-600 font-bold mb-1">帳款結餘 (扣抵水電)</label>
+              <input type="number" id="modTntBillBalance" class="w-full px-3 py-2 border border-stone-300 bg-stone-50 rounded" placeholder="多退少補餘額">
+            </div>
+          </div>
+          <div class="border-t border-stone-200 pt-3 mt-2">
+            <label class="block text-stone-600 mb-1">🛠️ 房間修繕與備註紀錄</label>
+            <textarea id="modTntNotes" rows="3" class="w-full px-3 py-2 border border-stone-300 bg-[#fefce8] rounded text-sm placeholder-stone-400" placeholder="例如：&#10;2026/02/15：更換冷氣機板 $3500&#10;2026/03/10：租客反應浴室漏水已處理"></textarea>
+          </div>    
+        </div>
+        <div class="flex gap-2">
+          <button onclick="document.getElementById('modalTenant').classList.add('hidden')" class="flex-1 bg-stone-200 py-2 rounded text-stone-700 text-sm">取消</button>
+          <button onclick="submitTenantEdit()" class="flex-1 bg-stone-800 py-2 rounded text-white text-sm">儲存設定</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="modalPay" class="hidden fixed inset-0 modal-bg z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded p-5 w-full max-w-sm">
+        <h3 class="font-bold text-lg mb-4 text-[#166534]">確認收款入帳</h3>
+        <p class="text-xs text-stone-500 mb-4">房號：<span id="modPayRoom" class="font-bold text-stone-800"></span></p>
+        <input type="hidden" id="modPayBillId">
+        <label class="block text-sm text-stone-600 mb-1">收款日期</label>
+        <input type="date" id="modPayDate" class="w-full px-3 py-2 border border-stone-300 bg-[#f9f9f8] mb-4 rounded">
+        <label class="block text-sm text-stone-600 mb-1">實際收款金額 <span class="text-[10px] text-stone-400">(差額將遞延)</span></label>
+        <input type="number" id="modPayAmt" class="w-full px-3 py-2 border border-stone-300 bg-[#f9f9f8] mb-6 text-xl font-bold text-red-700 rounded">
+        <div class="flex gap-2">
+          <button onclick="document.getElementById('modalPay').classList.add('hidden')" class="flex-1 bg-stone-200 py-2 rounded text-stone-700 text-sm">取消</button>
+          <button onclick="submitPayment()" class="flex-1 bg-[#166534] py-2 rounded text-white text-sm">確認結清</button>
+        </div>
+      </div>
+    </div>
+
+<div id="receiptTemplate" class="hidden fixed top-0 left-0 w-[450px] bg-white p-8 border border-stone-300 z-[-1] text-stone-800">
+      <h2 class="text-2xl font-bold text-center mb-6 border-b-2 border-stone-800 pb-4 tracking-widest">房屋繳費通知單</h2>
+      <div class="space-y-3 text-sm">
+        <div class="flex justify-between"><p class="text-stone-500">戶號 / 租客</p><p class="font-bold text-lg"><span id="rtRoom"></span> / <span id="rtTenant"></span></p></div>
+        <div class="flex justify-between"><p class="text-stone-500">計費月份</p><p class="font-medium" id="rtMonth"></p></div>
+        <div class="flex justify-between"><p class="text-stone-500">繳款期限</p><p class="font-bold text-red-700" id="rtDeadline"></p></div>
+        <div class="flex justify-between"><p class="text-stone-500">合約到期日</p><p class="font-medium" id="rtEndDate"></p></div>
+        <div class="border-t border-dashed border-stone-300 my-4"></div>
+        <p class="font-bold text-stone-600 bg-stone-100 p-1 mb-2">⚡ 電費明細</p>
+        <div class="flex justify-between"><p class="text-stone-500">上期/本期度數</p><p><span id="rtLastRead"></span> / <span id="rtCurRead"></span></p></div>
+        <div class="flex justify-between"><p class="text-stone-500">使用度數/費率</p><p class="font-bold"><span id="rtUsage"></span> 度 / $<span id="rtRate"></span></p></div>
+        <div class="border-t border-stone-200 my-4"></div>
+        <div class="flex justify-between items-center"><p class="font-medium text-stone-600">本期租金</p><p class="text-lg">$<span id="rtRent"></span></p></div>
+        <div id="rtRentDeductContainer" class="flex justify-between items-center text-[#166534] font-bold hidden"><p>預繳租金扣抵</p><p id="rtRentDeduct"></p></div>
+        <div class="flex justify-between items-center"><p class="font-medium text-stone-600">本期電費</p><p class="text-lg">$<span id="rtElec"></span></p></div>
+        <div class="flex justify-between items-center"><p class="font-medium text-stone-600">本期水費</p><p class="text-lg">$<span id="rtWater"></span></p></div>
+        <div id="rtExtraContainer" class="flex justify-between items-center text-[#075985] font-bold hidden"><p id="rtExtraNote">自訂加扣款</p><p id="rtExtraFee"></p></div>
+        <div id="rtPrevBalContainer" class="flex justify-between items-center text-blue-700 font-bold hidden"><p>前期帳款結餘</p><p id="rtPrevBal"></p></div>
+        <div class="border-t-2 border-stone-800 my-4 pt-4 flex justify-between items-end text-xl font-bold"><p>應繳總計</p><p class="text-3xl text-red-700">$<span id="rtTotal"></span></p></div>
+        <div class="mt-8 bg-stone-50 border border-stone-300 p-4 text-xs space-y-1">
+          <p class="font-bold text-stone-700 mb-2 border-b border-stone-200 pb-1">🏦 匯款資訊</p>
+          <p>銀行：<span class="font-medium" id="coBankName"></span></p>
+          <p>帳號：<span class="font-medium text-lg tracking-wider" id="coBankAcc"></span></p>
+          <p>戶名：<span class="font-medium" id="coBankUser"></span></p>
+        </div>
+      </div>
+    </div>
+
+<div id="checkoutReceiptTemplate" class="hidden fixed top-0 left-0 w-[450px] bg-white p-8 border border-stone-300 z-[-1] text-stone-800">
+      <h2 class="text-2xl font-bold text-center mb-6 border-b-2 border-stone-800 pb-4 tracking-widest">退租結算明細單</h2>
+      <div class="space-y-3 text-sm">
+        <div class="flex justify-between"><p class="text-stone-500">戶號 / 租客</p><p class="font-bold text-lg"><span id="crtRoom"></span> / <span id="crtTenant"></span></p></div>
+        <div class="flex justify-between"><p class="text-stone-500">退租日期</p><p class="font-medium" id="crtDate"></p></div>
+        <div class="border-t border-dashed border-stone-300 my-4"></div>
+        <p class="font-bold text-stone-600 bg-stone-100 p-1 mb-2">⚡ 結算電費</p>
+        <div class="flex justify-between"><p class="text-stone-500">結算區間</p><p class="font-bold text-[#075985]" id="crtPeriod"></p></div>
+        <div class="flex justify-between"><p class="text-stone-500">上期 / 最終度數</p><p><span id="crtLastRead"></span> / <span id="crtFinalRead"></span></p></div>
+        <div class="flex justify-between"><p class="text-stone-500">使用度數 / 費率</p><p class="font-bold"><span id="crtUsage"></span> 度 / $<span id="crtRate"></span></p></div>
+        <div class="border-t border-stone-200 my-4"></div>
+        <div class="flex justify-between items-center"><p class="font-medium text-stone-600">原押金</p><p class="text-lg">$<span id="crtDeposit"></span></p></div>
+        <div class="flex justify-between items-center text-red-700"><p>扣：最後電費</p><p>-$<span id="crtFinalElec"></span></p></div>
+        <div class="flex justify-between items-center text-red-700"><p id="crtPenaltyLabel">扣：違約金</p><p>-$<span id="crtPenalty"></span></p></div>
+        <div class="flex justify-between items-center text-red-700"><p>扣：其他款項</p><p>-$<span id="crtDeductions"></span></p></div>
+        <div class="flex justify-between items-center text-blue-700"><p>加：歷史台電退匯</p><p>+$<span id="crtTpRefund"></span></p></div>
+        <div class="border-t-2 border-stone-800 my-4 pt-4 flex justify-between items-end text-xl font-bold"><p>實退總額</p><p class="text-3xl text-[#166534]">$<span id="crtTotal"></span></p></div>
+        <p class="text-[11px] text-stone-500 text-right" id="crtStatusHint"></p>
+        <div class="mt-12 border-t border-stone-400 pt-8">
+          <p class="text-sm text-stone-600 mb-10">本人確認明細無誤，並已點收退款與點交房屋：</p>
+          <div class="flex items-end justify-between"><span class="text-sm text-stone-600 font-bold">租客簽名：</span><div class="border-b border-stone-800 w-2/3"></div></div>
+          <p class="text-[10px] text-stone-400 mt-6 text-center" id="crtTime"></p>
+        </div>
+      </div>
+    </div>
+      <div id="tpReceiptTemplate" class="hidden fixed top-0 left-0 w-[450px] bg-white p-8 border border-stone-300 z-[-1] text-stone-800">
+      <h2 class="text-2xl font-bold text-center mb-6 border-b-2 border-stone-800 pb-4 tracking-widest">台電最終結算單</h2>
+      <div class="space-y-3 text-sm">
+        <div class="flex justify-between"><p class="text-stone-500">戶號 / 租客</p><p class="font-bold text-lg"><span id="trptRoom"></span> / <span id="trptTenant"></span></p></div>
+        <div class="flex justify-between"><p class="text-stone-500">退租日期</p><p class="font-medium" id="trptDate"></p></div>
+        <div class="border-t border-dashed border-stone-300 my-4"></div>
+        
+        <p class="font-bold text-stone-600 bg-blue-50 p-1 mb-2">⚡ 台電多退少補 (全期結算)</p>
+        <p class="text-xs text-stone-500 mb-4">本單據為退租後，待台電帳單全數出帳後之最終精算結果，已扣除退租當下預收/預退之結算電費。</p>
+        
+        <div class="border-t-2 border-stone-800 my-4 pt-4 flex justify-between items-end text-xl font-bold">
+          <p id="trptAmtLabel">應退還金額</p>
+          <p class="text-3xl" id="trptAmt">$0</p>
+        </div>
+        
+        <div class="mt-12 border-t border-stone-400 pt-8">
+          <p class="text-sm text-stone-600 mb-10">此致 確認無誤並結清款項：</p>
+          <div class="flex items-end justify-between"><span class="text-sm text-stone-600 font-bold">簽名/蓋章：</span><div class="border-b border-stone-800 w-2/3"></div></div>
+          <p class="text-[10px] text-stone-400 mt-6 text-center" id="trptTime"></p>
+        </div>
+    </div>
+    </div>
+  </div>
+
+  <script>
+    // ══════════════════════════════════════════════════════════════
+    // ★ Google Apps Script 橋接 Shim
+    //   在 GitHub Pages 環境自動攔截 google.script.run 呼叫，
+    //   轉為 fetch → GAS Web App (POST)，零侵入原有程式碼
+    // ══════════════════════════════════════════════════════════════
+    (function() {
+      // 偵測是否在 GAS 原生環境（iframe 內）
+      const inGAS = (typeof google !== 'undefined')
+                 && (typeof google.script !== 'undefined')
+                 && (typeof google.script.run !== 'undefined')
+                 && !window.location.hostname.includes('github.io')
+                 && window.location.hostname !== 'localhost'
+                 && window.location.hostname !== '127.0.0.1';
+
+      if (inGAS) return; // 原生環境：不做任何事
+
+      // ── 非 GAS 環境：建立 shim ─────────────────────────────────
+      // 讀取已設定的 API URL
+      window._gasApiUrl = (() => {
+        try { return localStorage.getItem('GAS_API_URL') || ''; } catch(e) { return ''; }
+      })();
+
+      // 核心呼叫函數
+      window._gasInvoke = function(fnName, payload, onSuccess, onFailure) {
+        const url = window._gasApiUrl;
+        if (!url) {
+          _gasShowSetup().then(() => window._gasInvoke(fnName, payload, onSuccess, onFailure));
+          return;
+        }
+        fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ fn: fnName, payload: payload !== undefined ? payload : null })
+        })
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(data => {
+          if (data && data.__gasError) {
+            if (onFailure) onFailure({ message: data.__gasError });
+          } else {
+            if (onSuccess) onSuccess(data);
+          }
+        })
+        .catch(err => {
+          if (onFailure) onFailure({ message: '連線失敗：' + err.message });
+        });
+      };
+
+      // Shim Builder：鏈式 API
+      function buildRunner(fnCalls) {
+        // fnCalls = { successHandler, failureHandler }
+        const runner = new Proxy({}, {
+          get(_, fnName) {
+            if (fnName === 'withSuccessHandler') {
+              return (cb) => buildRunner({ ...fnCalls, successHandler: cb });
+            }
+            if (fnName === 'withFailureHandler') {
+              return (cb) => buildRunner({ ...fnCalls, failureHandler: cb });
+            }
+            // 最後一個呼叫是實際函數名稱
+            return (payload) => {
+              window._gasInvoke(fnName, payload, fnCalls.successHandler, fnCalls.failureHandler);
+            };
+          }
+        });
+        return runner;
+      }
+
+      // 建立 google.script.run shim
+      window.google = window.google || {};
+      window.google.script = window.google.script || {};
+      window.google.script.run = buildRunner({});
+
+      // ── 首次設定 API URL 的 Modal ──────────────────────────────
+      window._gasShowSetup = function() {
+        return new Promise(resolve => {
+          if (document.getElementById('_gasSetup')) return resolve();
+          const el = document.createElement('div');
+          el.id = '_gasSetup';
+          el.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.8)';
+          el.innerHTML = `
+            <div style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:340px;box-shadow:0 25px 60px rgba(0,0,0,.4)">
+              <div style="text-align:center;font-size:36px;margin-bottom:8px">🔗</div>
+              <h3 style="font-weight:700;text-align:center;color:#1c1917;margin:0 0 6px">連接 Google Sheets</h3>
+              <p style="font-size:12px;color:#78716c;text-align:center;margin:0 0 16px">請輸入您的 Apps Script 部署網址</p>
+              <input id="_gasUrlInput" type="url"
+                placeholder="https://script.google.com/macros/s/.../exec"
+                style="width:100%;padding:10px 12px;border:1.5px solid #d6d3d1;border-radius:8px;font-size:11px;font-family:monospace;box-sizing:border-box;margin-bottom:6px">
+              <p style="font-size:10px;color:#a8a29e;margin:0 0 16px">格式：https://script.google.com/macros/s/AK…/exec</p>
+              <button id="_gasUrlSave"
+                style="width:100%;background:#292524;color:#fff;border:none;padding:12px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:background .2s"
+                onmouseover="this.style.background='#44403c'" onmouseout="this.style.background='#292524'">
+                ✅ 連接並儲存
+              </button>
+              <p style="font-size:10px;color:#a8a29e;text-align:center;margin:12px 0 0">網址僅儲存於本機，不會上傳至任何伺服器</p>
+            </div>`;
+          document.body.appendChild(el);
+          document.getElementById('_gasUrlSave').onclick = function() {
+            const val = (document.getElementById('_gasUrlInput').value || '').trim();
+            if (!val.startsWith('https://script.google.com')) {
+              alert('請輸入正確的 Apps Script 部署網址');
+              return;
+            }
+            try { localStorage.setItem('GAS_API_URL', val); } catch(e) {}
+            window._gasApiUrl = val;
+            el.remove();
+            resolve();
+          };
+        });
+      };
+
+      // 設定頁使用：重設連線
+      window.resetApiUrl = function() {
+        try { localStorage.removeItem('GAS_API_URL'); } catch(e) {}
+        window._gasApiUrl = '';
+        if (typeof showAlert === 'function') showAlert('已清除連線設定，請重新整理頁面', 'blue');
+      };
+    })();
+
+    // 🏦 初始銀行資料（會被 Settings 工作表設定覆蓋）
+    const BANK_INFO = { name: "中國信託 (822) 鳳山分行", account: "123-4567-89012", user: "租管科技股份有限公司", deadlineDays: 5 };
+    function fmtNum(num) { return Number(num).toLocaleString('en-US'); }
+
+    // === 自訂確認視窗邏輯 ===
+    let confirmCallback = null;
+    function customConfirm(msg, callback) {
+      document.getElementById('ccMsg').innerText = msg;
+      confirmCallback = callback;
+      document.getElementById('modalCustomConfirm').classList.remove('hidden');
+    }
+    function closeCustomConfirm(isYes) {
+      document.getElementById('modalCustomConfirm').classList.add('hidden');
+      if (isYes && confirmCallback) confirmCallback();
+    }
+
+    let pendingRooms = [], globalUnpaidBills = [], globalDeposits = [], activeRentedRooms = [], globalTpRates = [], currentCheckoutData = null;
+    let compressedImageBase64 = "";
+
+// === 🚀 效能優化：全域分頁快取狀態 ===
+    let cacheStatus = {
+      dashboard: false,
+      billing: false,
+      checkout: false,
+      tenant: false,
+      settings: false
+    };
+
+    window.onload = function() { 
+      switchTab('dashboard'); // 預設開啟首頁
+      // 抄表資料依然在背景載入
+      google.script.run.withSuccessHandler(initRooms).getPendingRooms(); 
+    };
+
+    function switchTab(tab) {
+      const tabs = ['dashboard', 'meter', 'billing', 'taipower', 'checkout', 'tenant', 'settings'];
+      const inactiveClass = "flex flex-col items-center py-1.5 px-0.5 text-stone-400 flex-1 gap-0.5 transition-colors";
+      const activeClass   = "flex flex-col items-center py-1.5 px-0.5 text-stone-800 flex-1 gap-0.5 border-t-2 border-stone-800 bg-stone-50 transition-colors";
+      tabs.forEach(t => { 
+        const sec = document.getElementById(t + 'Section');
+        const btn = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1));
+        if (sec) sec.classList.add('hidden'); 
+        if (btn) btn.className = inactiveClass; 
+      });
+      
+      if (tab === 'dashboard') { 
+        document.getElementById('dashboardSection').classList.remove('hidden');
+        document.getElementById('tabDashboard').className = activeClass; 
+        document.getElementById('headerTitle').innerText = '營運總覽';
+        if (!cacheStatus.dashboard) { loadDashboard(); cacheStatus.dashboard = true; }
+        
+      } else if (tab === 'meter') { 
+        document.getElementById('meterSection').classList.remove('hidden');
+        document.getElementById('tabMeter').className = activeClass; 
+        document.getElementById('headerTitle').innerText = '抄表作業';
+        
+      } else if (tab === 'billing') { 
+        document.getElementById('billingSection').classList.remove('hidden'); 
+        document.getElementById('tabBilling').className = activeClass; 
+        document.getElementById('headerTitle').innerText = '對帳中心';
+        if (!cacheStatus.billing) { loadReconciliation(); cacheStatus.billing = true; }
+        
+      } else if (tab === 'taipower') { 
+        document.getElementById('taipowerSection').classList.remove('hidden'); 
+        document.getElementById('tabTaipower').className = activeClass; 
+        document.getElementById('headerTitle').innerText = '台電結算';
+        
+      } else if (tab === 'checkout') { 
+        document.getElementById('checkoutSection').classList.remove('hidden'); 
+        document.getElementById('tabCheckout').className = activeClass; 
+        document.getElementById('headerTitle').innerText = '退租作業'; 
+        if (!cacheStatus.checkout) { loadCheckoutRooms(); cacheStatus.checkout = true; }
+        
+      } else if (tab === 'tenant') { 
+        document.getElementById('tenantSection').classList.remove('hidden'); 
+        document.getElementById('tabTenant').className = activeClass; 
+        document.getElementById('headerTitle').innerText = '租客管理'; 
+        if (!cacheStatus.tenant) { loadTenants(); cacheStatus.tenant = true; }
+        
+      } else if (tab === 'settings') {
+        document.getElementById('settingsSection').classList.remove('hidden');
+        document.getElementById('tabSettings').className = activeClass;
+        document.getElementById('headerTitle').innerText = '系統設定';
+        if (!cacheStatus.settings) { loadSettings(); cacheStatus.settings = true; }
+      }
+    }
+    function loadDashboard() {
+      showAlert('讀取最新數據中...', 'blue');
+      google.script.run.withSuccessHandler(res => {
+        if(res.success) {
+          // 填入財務數據
+          document.getElementById('dbUnpaidTotal').innerText = fmtNum(res.data.billing.unpaidTotal);
+          document.getElementById('dbUnpaidCount').innerText = res.data.billing.unpaidCount;
+          document.getElementById('dbRefundTotal').innerText = fmtNum(res.data.refunds.refundTotal);
+          document.getElementById('dbRefundCount').innerText = res.data.refunds.refundCount;
+          
+          // 填入房況數據
+          document.getElementById('dbTotalRooms').innerText = res.data.rooms.total;
+          document.getElementById('dbRentedRooms').innerText = res.data.rooms.rented;
+          document.getElementById('dbEmptyRooms').innerText = res.data.rooms.empty;
+          
+          // 填入待辦事項
+          document.getElementById('dbExpiredCount').innerText = res.data.rooms.expired + ' 戶';
+          document.getElementById('dbExpiringCount').innerText = res.data.rooms.expiring + ' 戶';
+        } else {
+          showAlert('儀表板讀取失敗', 'red');
+        }
+      }).getDashboardSummary();
+    }
+
+    // === 1. 抄表模組 ===
+    function initRooms(rooms) { 
+      pendingRooms = rooms; 
+      if (rooms.length > 0) { 
+        const select = document.getElementById('mRoomSelect'); 
+        select.innerHTML = '<option value="">請選擇...</option>'; 
+        rooms.forEach((r, idx) => { select.innerHTML += `<option value="${idx}">${r.roomId} (${r.tenant})</option>`; }); 
+        document.getElementById('meterCard').classList.remove('hidden'); 
+      } else { 
+        document.getElementById('meterCard').classList.add('hidden'); 
+        document.getElementById('doneScreen').classList.remove('hidden'); 
+      } 
+    }
+
+ function renderSelectedRoom() { 
+  const idx = document.getElementById('mRoomSelect').value;
+  if(idx === "") return; 
+  
+  const room = pendingRooms[idx]; 
+  const d = new Date(); 
+  d.setMonth(d.getMonth() - 1);
+  document.getElementById('mPrevMonthLabel').innerText = `上期 (${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, '0')})`; 
+  document.getElementById('uiLastReading').innerText = room.lastReading; 
+  
+  // 核心修正：加入防呆檢查，如果畫面沒有 mIsPrepaid 標籤，就不會報錯中斷
+  const mIsPrepaidEl = document.getElementById('mIsPrepaid');
+  if (mIsPrepaidEl) {
+    mIsPrepaidEl.checked = room.isPrepaid; 
+  }
+  
+  const balLabel = document.getElementById('mBalanceLabel');
+  if (room.isPrepaid || room.balance > 0) {
+    balLabel.classList.remove('hidden');
+    
+    if (room.balance <= 0) {
+      balLabel.classList.add('text-red-600', 'font-bold');
+      balLabel.innerHTML = '⚠️ 預繳餘額已用完 ($0)';
+    } else {
+      balLabel.classList.remove('text-red-600', 'font-bold');
+      balLabel.innerHTML = '目前餘額: $<span id="mBalanceVal">' + fmtNum(room.balance) + '</span>';
+    }
+  } else {
+    balLabel.classList.add('hidden');
+  }
+
+  // 清空輸入狀態
+  document.getElementById('currentReading').value = '';
+  document.getElementById('previewImg').classList.add('hidden'); 
+  compressedImageBase64 = "";
+}
+
+    document.getElementById('photoInput').addEventListener('change', function(e) { 
+      const file = e.target.files[0]; 
+      if (!file) return; 
+      const reader = new FileReader(); 
+      reader.onload = function(event) { 
+        const img = new Image(); 
+        img.onload = function() { 
+          const canvas = document.createElement('canvas'); 
+          canvas.width = 800; 
+          canvas.height = img.height * (800 / img.width); 
+          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height); 
+          compressedImageBase64 = canvas.toDataURL('image/jpeg', 0.7); 
+          document.getElementById('previewImg').src = compressedImageBase64; 
+          document.getElementById('previewImg').classList.remove('hidden'); 
+        }; 
+        img.src = event.target.result; 
+      }; 
+      reader.readAsDataURL(file); 
+    });
+// === 修正後的抄表送出與 UI 完整重置邏輯 (Index.html) ===
+document.getElementById('meterForm').addEventListener('submit', function(e) { 
+  e.preventDefault(); 
+  const selectEl = document.getElementById('mRoomSelect');
+  const idx = selectEl.value; 
+  if(idx === "" || idx === null) return; 
+  
+  const room = pendingRooms[idx];
+  if (!room) return; 
+
+  const currentReading = parseFloat(document.getElementById('currentReading').value); 
+  
+  if (currentReading < room.lastReading) { showAlert('度數不可小於上期', 'red'); return; } 
+  if (!compressedImageBase64) { showAlert('請拍攝照片', 'red'); return; } 
+  
+  const btn = document.getElementById('submitBtn'); 
+  btn.disabled = true; 
+  btn.innerText = '寫入中...'; 
+  
+  const payload = { 
+    roomId: room.roomId || '', 
+    tenant: room.tenant || '', 
+    lastReading: Number(room.lastReading) || 0, 
+    currentReading: currentReading, 
+    elecRate: Number(room.elecRate) || 0, 
+    waterFee: Number(room.waterFee) || 0, 
+    balance: Number(room.balance) || 0, 
+    imageBase64: compressedImageBase64 || '' 
+  };
+
+  google.script.run
+    .withSuccessHandler(res => { 
+      if (res.success) { 
+        showAlert(res.message, 'green'); 
+        
+        // 1. 先重置所有輸入欄位與圖片狀態 (解決按鈕卡住與圖片未清空)
+        document.getElementById('currentReading').value = '';
+        document.getElementById('photoInput').value = '';
+        const preview = document.getElementById('previewImg');
+        if (preview) {
+          preview.src = '';
+          preview.classList.add('hidden');
+        }
+        compressedImageBase64 = "";
+        
+        // 2. 從待抄表清單移除該戶
+        pendingRooms.splice(idx, 1); 
+        
+        // 3. 處理「自動下一戶」邏輯
+        if(pendingRooms.length > 0) {
+          initRooms(pendingRooms); // 重新生成選單以確保 Index 正確
+          
+          const autoNext = document.getElementById('mContinuous');
+          if(autoNext && autoNext.checked) {
+            // 計算下一戶位置，若超出範圍則回歸第一戶
+            const nextIdx = (parseInt(idx) >= pendingRooms.length) ? 0 : idx;
+            document.getElementById('mRoomSelect').value = nextIdx;
+            renderSelectedRoom(); // 觸發畫面更新，顯示上期度數
+          } else {
+            document.getElementById('mRoomSelect').value = "";
+          }
+        } else {
+          // 全部抄完，顯示完成畫面
+          initRooms([]);
+          document.getElementById('meterCard').classList.add('hidden');
+          document.getElementById('doneScreen').classList.remove('hidden');
+        }
+      } else {
+        showAlert('寫入失敗：' + res.message, 'red');
+      }
+      
+      // 4. 無論成功與否，務必恢復按鈕狀態
+      btn.disabled = false;
+      btn.innerText = '送出'; 
+    })
+    .withFailureHandler(err => {
+      showAlert('系統連線異常: ' + err.message, 'red');
+      btn.disabled = false; 
+      btn.innerText = '送出'; 
+    })
+    .submitMeterReading(payload);
+});
+
+    // === 2. 雙向對帳模組 ===
+    function loadReconciliation() { 
+      document.getElementById('reconContainer').innerHTML = '<p class="text-stone-400 text-center py-10">資料同步中...</p>'; 
+      google.script.run.withSuccessHandler(renderReconData).getReconciliationData(); 
+    }
+
+// 1. 接收後端資料，並存入全域變數
+    function renderReconData(data) {
+      globalUnpaidBills = data.bills || []; 
+      globalDeposits = data.deposits || [];
+      applyReconFilters(); // 初次載入時，直接套用預設的篩選條件並渲染
+    }
+
+    // 2. 新增：前端即時篩選引擎
+    function applyReconFilters() {
+      const keyword = document.getElementById('reconSearch').value.toLowerCase();
+      const type = document.getElementById('reconFilterType').value;
+
+      // 過濾應收款項
+      let filteredBills = globalUnpaidBills.filter(b => {
+        return b.roomId.toLowerCase().includes(keyword) || b.tenant.toLowerCase().includes(keyword);
+      });
+
+      // 過濾應付退款
+      let filteredDeposits = globalDeposits.filter(d => {
+        return d.roomId.toLowerCase().includes(keyword) || d.tenant.toLowerCase().includes(keyword);
+      });
+
+      // 根據下拉選單決定顯示哪一區塊
+      if (type === 'receivable') filteredDeposits = [];
+      if (type === 'payable') filteredBills = [];
+
+      // 將過濾完的陣列交給畫面產生器
+      renderReconHTML(filteredBills, filteredDeposits);
+    }
+
+    // 3. 負責將過濾後的資料畫到畫面上 (保留上一輪加入的動態下載按鈕)
+    function renderReconHTML(bills, deposits) {
+      const container = document.getElementById('reconContainer');
+      let html = '';
+      
+      if(bills.length > 0) {
+        html += '<h3 class="text-xs font-bold text-red-700 bg-red-50 p-2 rounded mb-2 border border-red-100">🔴 應收款項 (本期帳單/台電補繳)</h3>';
+        bills.forEach(b => { 
+          html += `
+            <div class="bg-white border border-stone-200 p-3 rounded mb-3 shadow-sm">
+              <div class="flex justify-between items-center mb-2">
+                <div><span class="font-bold text-stone-800 text-lg">${b.roomId}</span><span class="text-xs text-stone-500 ml-2">${b.tenant} | ${b.yearMonth}</span></div>
+                <div class="font-bold text-red-700 text-lg">$${fmtNum(b.totalAmount)}</div>
+              </div>
+              <div class="flex gap-1.5">
+                <button onclick="generateSingleInvoice('${b.billId}')" class="flex-1 bg-stone-50 border border-stone-200 text-stone-600 text-[11px] py-1.5 rounded hover:bg-stone-100 transition-colors">📄 下載</button>
+                <button onclick="copyReminderText('${b.billId}')" class="flex-1 bg-blue-50 border border-blue-200 text-[#075985] font-medium text-[11px] py-1.5 rounded hover:bg-blue-100 transition-colors">📱 催繳</button>
+                <button onclick="openEditModal('${b.billId}')" class="flex-1 bg-stone-50 border border-stone-200 text-stone-600 text-[11px] py-1.5 rounded hover:bg-stone-100 transition-colors">✏️ 修改</button>
+                <button onclick="openPayModal('${b.billId}', '${b.roomId}', ${b.totalAmount})" class="flex-[1.2] bg-stone-800 hover:bg-stone-700 text-white text-[11px] py-1.5 rounded transition-colors">✅ 入帳</button>
+              </div>
+            </div>`;
+        });
+      }
+      
+      if(deposits.length > 0) {
+        html += '<h3 class="text-xs font-bold text-[#166534] bg-green-50 p-2 rounded mt-6 mb-2 border border-green-100">🟢 應付退款 (退租/台電結清)</h3>';
+        deposits.forEach(d => { 
+          let isTp = d.type === '待退台電款';
+          let title = isTp ? "⚡ 台電結清退款" : "押金與結算退款";
+          let btnLabel = isTp ? "確認已退台電款" : "確認已退押金";
+          let btnAction = isTp ? `confirmTpFinalRefund('${d.stId}')` : `confirmDepRefund('${d.stId}')`;
+          let titleColor = isTp ? "text-[#075985]" : "text-stone-800";
+          
+          let downloadBtn = '';
+          if (isTp) {
+            downloadBtn = `<button onclick="downloadTpReceipt('${d.roomId}', '${d.tenant}', '${d.moveOutDate}', ${d.refundAmount})" class="flex-[1] bg-stone-50 border border-stone-200 text-stone-600 font-medium text-[11px] py-1.5 rounded hover:bg-stone-100 transition-colors">📄 下載</button>`;
+          } else {
+            const dStr = encodeURIComponent(JSON.stringify(d));
+            downloadBtn = `<button onclick="downloadCheckoutReceipt('${dStr}')" class="flex-[1] bg-stone-50 border border-stone-200 text-stone-600 font-medium text-[11px] py-1.5 rounded hover:bg-stone-100 transition-colors">📄 下載</button>`;
+          }
+
+          html += `
+            <div class="bg-white border border-stone-200 p-3 rounded mb-3 shadow-sm">
+              <div class="flex justify-between items-center mb-1">
+                <div><span class="font-bold ${titleColor} text-lg">${d.roomId}</span><span class="text-xs text-stone-500 ml-2">${d.tenant}</span></div>
+                <div class="font-bold text-[#166534] text-lg">$${fmtNum(d.refundAmount)}</div>
+              </div>
+              <p class="text-[10px] text-stone-500 mb-3">${title} | 退租日: ${d.moveOutDate}</p>
+              <div class="flex gap-2">
+                ${downloadBtn}
+                <button onclick="${btnAction}" class="flex-[2] bg-[#166534] hover:bg-[#14532d] text-white font-medium text-[11px] py-1.5 rounded transition-colors">✅ ${btnLabel}</button>
+              </div>
+            </div>`; 
+        });
+      }
+      
+      if(html === '') html = '<div class="text-center py-12"><p class="text-stone-400 tracking-widest text-sm">目前無符合條件的帳款</p></div>';
+      container.innerHTML = html;
+    }
+
+    function confirmDepRefund(stId) { 
+      customConfirm('確認已將押金退還給租客？\n(確認後本單將轉入台電待結算清單)', function() { 
+        google.script.run.withSuccessHandler(res => { 
+          showAlert(res.message, res.success ? 'green' : 'red'); 
+          if(res.success) loadReconciliation(); 
+        }).confirmDepositRefund(stId);
+      });
+    }
+
+    function confirmTpFinalRefund(stId) {
+      customConfirm('確認已將「台電多退少補」的款項退還給租客？\n(確認後本單將正式結案歸檔)', function() { 
+        google.script.run.withSuccessHandler(res => { 
+          showAlert(res.message, res.success ? 'green' : 'red'); 
+          if(res.success) loadReconciliation(); 
+        }).confirmTpFinalRefundBackend(stId);
+      });
+    }
+// 升級版：打開帳單修改視窗
+    function openEditModal(id) { 
+      const b = globalUnpaidBills.find(x => x.billId === id);
+      if(!b) {
+        showAlert('找不到該筆帳單資料', 'red');
+        return;
+      }
+      
+      try {
+        // 將資料填入新版的彈出視窗欄位中
+        document.getElementById('modEditBillId').value = id; 
+        document.getElementById('modEditRoom').innerText = b.roomId;
+        document.getElementById('modEditReading').value = b.currentReading; 
+        document.getElementById('modEditRent').value = b.rent; 
+        document.getElementById('modEditWater').value = b.waterFee; 
+        document.getElementById('modEditExtra').value = b.extraFee || ''; 
+        document.getElementById('modEditNote').value = b.extraNote || ''; 
+        
+        document.getElementById('modalEdit').classList.remove('hidden'); 
+      } catch (err) {
+        console.error(err);
+        showAlert('畫面載入失敗，請確認 HTML 標籤是否有正確更新', 'red');
+      }
+    }
+    
+    // 升級版：送出帳單修改
+    function submitEditBill() { 
+      document.getElementById('modalEdit').classList.add('hidden');
+      showAlert('重新計算中...', 'blue');
+      
+      const payload = {
+        billId: document.getElementById('modEditBillId').value,
+        currentReading: document.getElementById('modEditReading').value,
+        rent: document.getElementById('modEditRent').value,
+        waterFee: document.getElementById('modEditWater').value,
+        extraFee: document.getElementById('modEditExtra').value || 0,
+        extraNote: document.getElementById('modEditNote').value
+      };
+      
+      google.script.run
+        .withSuccessHandler(res => { 
+          showAlert(res.message, res.success ? 'green' : 'red'); 
+          if(res.success) loadReconciliation(); 
+        })
+        .withFailureHandler(err => {
+          showAlert('連線錯誤: ' + err.message, 'red');
+        })
+        .updateBillDetails(payload);
+    }
+
+    // 對帳彈出視窗：確認收款
+    function openPayModal(id, rm, amt) { 
+      document.getElementById('modPayRoom').innerText = rm; 
+      document.getElementById('modPayBillId').value = id; 
+      const d = new Date(); 
+      document.getElementById('modPayDate').value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; 
+      document.getElementById('modPayAmt').value = amt; 
+      document.getElementById('modalPay').classList.remove('hidden'); 
+    }
+    
+    function submitPayment() { 
+      document.getElementById('modalPay').classList.add('hidden'); 
+      google.script.run.withSuccessHandler(res => { 
+        showAlert(res.message, res.success ? 'green' : 'red'); 
+        if(res.success) loadReconciliation(); 
+      }).confirmPayment({ 
+        billId: document.getElementById('modPayBillId').value, 
+        payDate: document.getElementById('modPayDate').value, 
+        actualAmount: document.getElementById('modPayAmt').value 
+      }); 
+    }
+    
+// === 修正後的請款單產出邏輯 (Index.html) ===
+function fillInvoiceTemplate(bill) { 
+  document.getElementById('rtRoom').innerText = bill.roomId;
+  document.getElementById('rtTenant').innerText = bill.tenant; 
+  
+  // 核心修正：計費月份僅顯示 YYYY-MM，不加任何括號文字
+  document.getElementById('rtMonth').innerText = bill.yearMonth || ''; 
+  
+  document.getElementById('rtEndDate').innerText = bill.endDate || '未填寫'; 
+  let d = new Date(); 
+  d.setDate(d.getDate() + BANK_INFO.deadlineDays);
+  document.getElementById('rtDeadline').innerText = `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} 前`; 
+  
+  document.getElementById('rtLastRead').innerText = bill.lastReading; 
+  document.getElementById('rtCurRead').innerText = bill.currentReading; 
+  document.getElementById('rtUsage').innerText = bill.usage; 
+  document.getElementById('rtRate').innerText = bill.elecRate; 
+  document.getElementById('rtElec').innerText = fmtNum(bill.elecFee);
+  document.getElementById('rtWater').innerText = fmtNum(bill.waterFee); 
+  document.getElementById('rtRent').innerText = fmtNum(bill.rent); 
+  document.getElementById('rtTotal').innerText = fmtNum(bill.totalAmount);
+  
+  // 銀行資訊匯入
+  document.getElementById('coBankName').innerText = BANK_INFO.name; 
+  document.getElementById('coBankAcc').innerText = BANK_INFO.account;
+  document.getElementById('coBankUser').innerText = BANK_INFO.user; 
+
+  // 加扣款與預繳處理
+  const extraCon = document.getElementById('rtExtraContainer');
+  if(bill.extraFee && bill.extraFee != 0) { 
+    extraCon.classList.remove('hidden');
+    document.getElementById('rtExtraNote').innerText = bill.extraNote || '加扣款';
+    document.getElementById('rtExtraFee').innerText = (bill.extraFee > 0 ? '+' : '') + '$' + fmtNum(bill.extraFee);
+  } else { 
+    extraCon.classList.add('hidden');
+  }
+
+  const rentDedCon = document.getElementById('rtRentDeductContainer');
+  if(bill.rentDeduct && bill.rentDeduct > 0) {
+    rentDedCon.classList.remove('hidden');
+    document.getElementById('rtRentDeduct').innerText = `-$${fmtNum(bill.rentDeduct)}`;
+  } else {
+    rentDedCon.classList.add('hidden');
+  }
+}
+
+function generateSingleInvoice(billId) { 
+  const bill = globalUnpaidBills.find(b => b.billId === billId);
+  if (!bill) { showAlert('找不到單據', 'red'); return; }
+  
+  fillInvoiceTemplate(bill); 
+  const t = document.getElementById('receiptTemplate'); 
+  t.classList.remove('hidden'); 
+  t.classList.add('block');
+  showAlert('產出中...', 'blue'); 
+  
+  // 修正：檔案名稱格式優化 (例: 1-A-2026-01月_繳費單.png)
+  const safeYM = (bill.yearMonth || '').replace(/[^0-9-]/g, '');
+  const fileName = `${bill.roomId}-${safeYM}月_繳費單.png`;
+  
+  setTimeout(() => {
+    html2canvas(t, { scale: 2 }).then(canvas => { 
+      t.classList.remove('block'); 
+      t.classList.add('hidden'); 
+      canvas.toBlob(b => saveAs(b, fileName)); 
+      showAlert('下載完成', 'green'); 
+    }).catch(err => {
+      t.classList.remove('block'); 
+      t.classList.add('hidden'); 
+      showAlert('下載失敗', 'red');
+    });
+  }, 300);
+}
+
+// 2. 修改下載檔名格式：1-A-2026-01月_繳費單.png
+function generateSingleInvoice(billId) { 
+  const bill = globalUnpaidBills.find(b => b.billId === billId);
+  if (!bill) { showAlert('找不到單據', 'red'); return; }
+  
+  fillInvoiceTemplate(bill); 
+  const t = document.getElementById('receiptTemplate'); 
+  t.classList.remove('hidden'); t.classList.add('block');
+  showAlert('產出中...', 'blue'); 
+  
+  // 檔名修正為：房號-2026-01月_繳費單.png
+  const fileName = `${bill.roomId}-${bill.yearMonth}月_繳費單.png`;
+  
+  setTimeout(() => {
+    html2canvas(t, { scale: 2 }).then(canvas => { 
+      t.classList.remove('block'); t.classList.add('hidden'); 
+      canvas.toBlob(b => saveAs(b, fileName)); 
+      showAlert('下載完成', 'green'); 
+    }).catch(err => {
+      t.classList.remove('block'); t.classList.add('hidden'); 
+      showAlert('下載失敗', 'red');
+    });
+  }, 300);
+}
+    
+    // 升級版：整批打包下載
+    async function batchExportInvoices() { 
+      if(globalUnpaidBills.length === 0) return;
+      const btn = document.getElementById('btnBatchExport'); 
+      btn.disabled = true; 
+      const zip = new JSZip();
+      const t = document.getElementById('receiptTemplate'); 
+      t.classList.remove('hidden'); 
+      t.classList.add('block');
+      
+      try {
+        for (let i = 0; i < globalUnpaidBills.length; i++) { 
+          btn.innerText = `${i+1}/${globalUnpaidBills.length}...`;
+          let b = globalUnpaidBills[i]; 
+          fillInvoiceTemplate(b); 
+          
+          // 迴圈中一定要給予足夠延遲，讓瀏覽器有時間畫出新資料
+          await new Promise(r => setTimeout(r, 300)); 
+          const canvas = await html2canvas(t, { scale: 2 });
+          const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png')); 
+          zip.file(`${b.roomId}_${b.tenant}_${b.yearMonth}.png`, blob);
+        } 
+        
+        btn.innerText = '壓縮中...';
+        const content = await zip.generateAsync({type:"blob"});
+        saveAs(content, `整批繳費單_${new Date().toISOString().slice(0,10)}.zip`); 
+        showAlert('打包成功！', 'green'); 
+      } catch(err) {
+        showAlert('打包過程發生錯誤，請重試', 'red');
+        console.error(err);
+      } finally {
+        // 無論成功或崩潰，finally 區塊一定會執行，保證樣板會被關閉
+        t.classList.remove('block'); 
+        t.classList.add('hidden'); 
+        btn.disabled = false; 
+        btn.innerText = 'ZIP 打包'; 
+      }
+    }
+    
+
+    // === 3. 台電模組 ===
+    function toggleTpMode(m) { 
+      const i = document.getElementById('btnTpInput'), r = document.getElementById('btnTpRefund'); 
+      if (m === 'input') { 
+        document.getElementById('tpInputMode').classList.remove('hidden'); 
+        document.getElementById('tpRefundMode').classList.add('hidden'); 
+        i.className = "w-1/2 py-3 text-sm font-medium border-b-2 border-stone-800 text-stone-800"; 
+        r.className = "w-1/2 py-3 text-sm font-medium border-b-2 border-transparent text-stone-400"; 
+      } else { 
+        document.getElementById('tpInputMode').classList.add('hidden'); 
+        document.getElementById('tpRefundMode').classList.remove('hidden'); 
+        r.className = "w-1/2 py-3 text-sm font-medium border-b-2 border-stone-800 text-stone-800"; 
+        i.className = "w-1/2 py-3 text-sm font-medium border-b-2 border-transparent text-stone-400"; 
+        loadPendingRefunds(); 
+      } 
+    }
+    
+    function toggleKwhInput() { 
+      const t = document.getElementById('tpType').value;
+      const c = document.getElementById('kwhContainer');
+      const k = document.getElementById('tpKwh'); 
+      if (t === '公電') { 
+        c.classList.add('hidden'); 
+        k.removeAttribute('required'); 
+      } else { 
+        c.classList.remove('hidden'); 
+        k.setAttribute('required', 'true'); 
+      } 
+    }
+    
+    document.getElementById('taipowerForm').addEventListener('submit', function(e) { 
+      e.preventDefault(); 
+      const btn = document.getElementById('tpSubmitBtn'); 
+      btn.disabled = true; btn.innerText = '計算中...'; 
+      const payload = { 
+        type: document.getElementById('tpType').value, startDate: document.getElementById('tpStart').value, 
+        endDate: document.getElementById('tpEnd').value, totalAmount: document.getElementById('tpAmount').value, 
+        totalKwh: document.getElementById('tpKwh').value || 0 
+      }; 
+      google.script.run.withSuccessHandler(res => { 
+        showAlert(res.message, res.success ? 'green' : 'red'); 
+        if(res.success) document.getElementById('taipowerForm').reset(); 
+        btn.disabled = false; btn.innerText = '儲存並試算'; 
+      }).saveTaipowerBill(payload); 
+    });
+        
+// === 升級版：台電退費結案 (全自動攤提介面) ===
+      function loadPendingRefunds() { 
+        const container = document.getElementById('refundsContainer');
+        container.innerHTML = '<p class="text-stone-400 text-center py-10 text-sm">系統自動結算中...</p>'; 
+        // 直接呼叫後端的自動引擎，並加入錯誤捕捉
+        google.script.run
+          .withSuccessHandler(renderRefunds)
+          .withFailureHandler(err => { container.innerHTML = `<div class="text-red-500 text-center py-10 text-sm">發生錯誤：${err.message}</div>`; })
+          .getPendingRefunds(); 
+      }
+      
+      function renderRefunds(refunds) { 
+        const c = document.getElementById('refundsContainer');
+        if (!refunds || refunds.length === 0) { 
+          c.innerHTML = '<div class="text-center py-12 text-sm text-stone-400">目前無待結算單</div>';
+          return; 
+        } 
+        
+        let h = '';
+        refunds.forEach(rf => { 
+          let statusHtml = rf.missingDays > 0 
+            ? `<span class="text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">尚缺 ${rf.missingDays} 天台電帳單</span>`
+            : `<span class="text-xs font-bold text-[#166534] bg-green-50 px-2 py-1 rounded border border-green-200">台電帳單已齊全</span>`;
+
+          // 修改：將房號、租客等資訊打包傳給 submitRefund，按鈕文字改為「結清並產出單據」
+          h += `
+            <div class="bg-white border border-stone-200 p-4 rounded mb-3 shadow-sm" id="rfCard-${rf.stId}">
+              <div class="flex justify-between items-start border-b border-stone-100 pb-3 mb-3">
+                <div>
+                  <h3 class="text-lg font-bold text-stone-800">${rf.roomId} <span class="text-sm font-medium text-stone-500 ml-1">${rf.tenant}</span></h3>
+                  <p class="text-xs text-stone-400 mt-1">退租日: ${rf.moveOutDate}</p>
+                </div>
+                <div class="text-right">${statusHtml}</div>
+              </div>
+              <div class="space-y-3">
+                <div class="bg-stone-50 p-3 flex justify-between items-center border border-stone-100 rounded">
+                  <span class="text-sm font-medium text-stone-600">系統精算差額</span>
+                  <span class="text-2xl font-bold ${rf.remainingRefund >= 0 ? 'text-[#166534]' : 'text-red-700'}">
+                    ${rf.remainingRefund >= 0 ? '+' : '-'}$${fmtNum(Math.abs(rf.remainingRefund))}
+                  </span>
+                </div>
+                <button onclick="submitRefund('${rf.stId}', ${rf.remainingRefund}, '${rf.roomId}', '${rf.tenant}', '${rf.moveOutDate}')" class="w-full bg-stone-800 hover:bg-stone-700 text-white font-medium py-3 text-sm rounded transition-colors">確認結清並產出單據</button>
+              </div>
+            </div>`;
+        }); 
+        c.innerHTML = h; 
+      }
+      
+// 觸發按鈕，直接將資料轉入對帳中心
+    function submitRefund(id, amt, roomId, tenant, date) { 
+      let actionTxt = amt >= 0 ? `退還 $${Math.abs(amt)} 給租客` : `向租客補收 $${Math.abs(amt)}`;
+      customConfirm(`確認結清台電帳款？\n(確認後將轉入對帳中心，請至該處下載單據)`, function() {
+        const card = document.getElementById(`rfCard-${id}`);
+        card.classList.add('opacity-50', 'pointer-events-none'); 
+        
+        const payload = { stId: id, amt: amt, roomId: roomId, tenant: tenant, moveOutDate: date };
+        
+        google.script.run
+          .withSuccessHandler(res => { 
+            if(res.success) {
+              showAlert('結案成功，已轉入對帳中心！', 'green');
+              loadPendingRefunds(); 
+            } else {
+              showAlert(res.message, 'red'); 
+              card.classList.remove('opacity-50', 'pointer-events-none');
+            }
+          })
+          .withFailureHandler(err => {
+            showAlert('連線錯誤: ' + err.message, 'red');
+            card.classList.remove('opacity-50', 'pointer-events-none');
+          })
+          .generateTaipowerFinalBill(payload);
+      });
+    }
+      // 2. 核心引擎：先拍照下載，後寫入資料庫
+      function generateTpReceiptAndSubmit(payload, cardElement) {
+        const t = document.getElementById('tpReceiptTemplate');
+        
+        // 防呆：確保上一版有正確貼上樣板 HTML
+        if (!t) {
+          showAlert('找不到單據樣板，請確認 HTML 結尾是否有貼上樣板程式碼！', 'red');
+          cardElement.classList.remove('opacity-50', 'pointer-events-none');
+          return;
+        }
+
+        // --- 步驟 A：填入文字資料 ---
+        document.getElementById('trptRoom').innerText = payload.roomId;
+        document.getElementById('trptTenant').innerText = payload.tenant;
+        document.getElementById('trptDate').innerText = payload.moveOutDate;
+        
+        let amtLabel = payload.amt >= 0 ? '應退還租客金額' : '租客應補繳金額';
+        document.getElementById('trptAmtLabel').innerText = amtLabel;
+        document.getElementById('trptAmt').innerText = `$${fmtNum(Math.abs(payload.amt))}`;
+        document.getElementById('trptAmt').className = payload.amt >= 0 ? "text-3xl text-[#166534]" : "text-3xl text-red-700";
+        
+        const now = new Date(); 
+        document.getElementById('trptTime').innerText = `產出時間: ${now.getFullYear()}/${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        
+        // --- 步驟 B：顯示樣板並給予渲染時間 ---
+        t.classList.remove('hidden'); 
+        t.classList.add('block');
+        showAlert('正在繪製單據圖片...', 'blue');
+        
+        // 加入 300 毫秒的延遲，確保瀏覽器已經把字體跟排版「畫」出來了才截圖
+        setTimeout(() => {
+          html2canvas(t, { scale: 2 }).then(canvas => { 
+            // 拍完照立刻隱藏樣板
+            t.classList.remove('block'); 
+            t.classList.add('hidden'); 
+            
+            // --- 步驟 C：觸發圖片下載 ---
+            canvas.toBlob(b => saveAs(b, `${payload.roomId}_台電結清單.png`)); 
+            showAlert('圖片下載成功！正在寫入系統...', 'blue'); 
+            
+            // --- 步驟 D：圖片確實下載後，才通知 GAS 後端轉移資料 ---
+            google.script.run
+              .withSuccessHandler(res => { 
+                if(res.success) {
+                  showAlert('結案成功，已轉入對帳中心！', 'green');
+                  loadPendingRefunds(); // 成功後重整台電畫面
+                } else {
+                  showAlert(res.message, 'red'); 
+                  cardElement.classList.remove('opacity-50', 'pointer-events-none');
+                }
+              })
+              .withFailureHandler(err => {
+                showAlert('寫入系統失敗: ' + err.message, 'red');
+                cardElement.classList.remove('opacity-50', 'pointer-events-none');
+              })
+              .generateTaipowerFinalBill(payload);
+
+          }).catch(err => {
+            // 若截圖過程發生錯誤，也能優雅地恢復狀態
+            t.classList.remove('block'); 
+            t.classList.add('hidden');
+            showAlert('產圖失敗，請重試', 'red');
+            cardElement.classList.remove('opacity-50', 'pointer-events-none');
+            console.error(err);
+          });
+        }, 300);
+      }
+
+
+    // === 4. 退租模組 ===
+    function loadCheckoutRooms() { 
+      google.script.run.withSuccessHandler(rooms => { 
+        activeRentedRooms = rooms; 
+        const s = document.getElementById('coRoom'); 
+        s.innerHTML = '<option value="">請選擇...</option>'; 
+        rooms.forEach(r => { s.innerHTML += `<option value="${r.roomId}">${r.roomId} (${r.tenant})</option>`; }); 
+      }).getRentedRooms(); 
+    }
+    
+function fetchRoomCheckoutData() { 
+  const rm = document.getElementById('coRoom').value; 
+  if(!rm) { 
+    document.getElementById('coDetailsContainer').classList.add('hidden'); 
+    return;
+  } 
+  
+  showAlert('載入歷史帳單與台電費率中...', 'blue'); 
+  
+  google.script.run
+    .withFailureHandler(err => showAlert('讀取失敗: ' + err.message, 'red'))
+    .withSuccessHandler(d => { 
+      // 暫存全域變數供計算引擎使用
+      currentCheckoutData = d; 
+      const r = d.room;
+      
+      // 解除隱藏並寫入初始資料
+      document.getElementById('coDetailsContainer').classList.remove('hidden'); 
+      document.getElementById('coDepositPreview').innerText = fmtNum(r.deposit); 
+      
+      // 確保正確帶出上期度數
+      document.getElementById('coLastReadingPreview').innerText = r.lastReading; 
+      document.getElementById('coRateVal').innerText = r.elecRate; 
+      
+      // 清空最終度數
+      document.getElementById('coFinalReading').value = ''; 
+      
+      // 自動帶入今日作為預設退租日
+      const today = new Date();
+      document.getElementById('coDate').value = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+      
+      // 主動觸發一次試算
+      calcCheckoutTotal(); 
+    })
+    .getRoomCheckoutData(rm);
+}
+
+function calcCheckoutTotal() { 
+  // 若後端資料尚未載入，不執行計算
+  if(!currentCheckoutData) return; 
+  
+  const r = currentCheckoutData.room;
+  const finalReadingStr = document.getElementById('coFinalReading').value;
+  const modStr = document.getElementById('coDate').value;
+  
+  let usage = 0;
+  let finalElecFee = 0;
+  let isReadingValid = false;
+
+  // ==== 1. 結算電費計算與防呆 ====
+  if (finalReadingStr !== "") {
+    const finalReading = parseFloat(finalReadingStr);
+    if (finalReading >= r.lastReading) {
+      // 正常度數計算
+      usage = Math.round((finalReading - r.lastReading) * 10) / 10; 
+      finalElecFee = Math.round(usage * r.elecRate); 
+      isReadingValid = true;
+      
+      document.getElementById('coUsageVal').innerText = usage; 
+      document.getElementById('coFinalElecVal').innerText = `$${fmtNum(finalElecFee)}`;
+    } else {
+      // 防呆：度數小於上期
+      document.getElementById('coUsageVal').innerText = "錯誤"; 
+      document.getElementById('coFinalElecVal').innerText = "$0";
+    }
+  } else {
+    // 尚未填寫度數
+    document.getElementById('coUsageVal').innerText = "0"; 
+    document.getElementById('coFinalElecVal').innerText = "$0";
+  }
+
+  // ==== 2. 前端即時按日攤提引擎 ====
+  let totRef = 0;
+  let missD = 0;
+  let calcD = 0;
+
+  // 只有在日期與度數皆合法時才跑引擎，避免崩潰
+  if (modStr && isReadingValid) {
+    let periods = JSON.parse(JSON.stringify(currentCheckoutData.history)); 
+    let lastDate = periods.length > 0 ? periods[periods.length-1].end : null;
+    let mDate = new Date(modStr).getTime();
+    
+    // 計算最後一期的起始日
+    let finalStart = lastDate ? (lastDate + 86400000) : (mDate - (30 * 86400000));
+
+    // 防呆：退租日必須大於等於最後計費日
+    if (mDate >= finalStart) {
+      periods.push({ start: finalStart, end: mDate, kwh: usage, rate: r.elecRate });
+    }
+
+    periods.forEach(p => {
+      let sD = new Date(p.start); sD.setHours(0,0,0,0);
+      let eD = new Date(p.end); eD.setHours(0,0,0,0);
+      const days = Math.round((eD.getTime() - sD.getTime()) / 86400000) + 1;
+      
+      if(days <= 0) return;
+      
+      const dailyK = p.kwh / days;
+
+      // 逐日迴圈比對
+      for(let d = new Date(sD); d <= eD; d.setDate(d.getDate()+1)) {
+        let cd = d.getTime();
+        let privR = null, pubR = 0;
+        
+        // 尋找對應的私電與公電費率
+        for(let tp of currentCheckoutData.tpPrivate) { 
+          if(cd >= tp.start && cd <= tp.end) { privR = tp.rate; break; } 
+        }
+        for(let tp of currentCheckoutData.tpPublic) { 
+          if(cd >= tp.start && cd <= tp.end) { pubR = tp.rate; break; } 
+        }
+
+        if (privR === null) { 
+          missD++; 
+        } else { 
+          totRef += (dailyK * (p.rate - privR)) - pubR; 
+          calcD++; 
+        }
+      }
+    });
+  }
+
+  const tpRef = Math.round(totRef);
+  document.getElementById('coCalcDays').innerText = calcD;
+  document.getElementById('coMissDays').innerText = missD;
+  document.getElementById('coTpRefundPreview').innerText = tpRef >= 0 ? `+$${fmtNum(tpRef)}` : `-$${fmtNum(Math.abs(tpRef))}`;
+  document.getElementById('coTpRefundPreview').dataset.amt = tpRef; // 重要：寫入 data-amt 供後續送出表單使用
+
+  // ==== 3. 押金與違約金處理 ====
+  const rsn = document.getElementById('coReason').value;
+  let pen = 0, hint = ""; 
+  
+  if(rsn === '解約') { 
+    pen = r.deposit; 
+    hint = "已扣除押金作違約金";
+  } else if(rsn === '抵租') { 
+    pen = r.rentAmount; 
+    hint = `已扣除末期租金 $${fmtNum(pen)}`;
+  } 
+  document.getElementById('coReasonHint').innerText = hint; 
+
+  // ==== 4. 計算總退還金額 ====
+  const dAmt = parseFloat(document.getElementById('coDeductions').value) || 0;
+  // 總退還 = 押金 - 結算電費 - 違約金/抵租金 - 其他扣款 + 台電歷史攤提
+  const tot = r.deposit - finalElecFee - pen - dAmt + tpRef; 
+  
+  // 更新畫面 (確保不會出現負數退款的邏輯，最低退 0)
+  document.getElementById('coRefundPreview').innerText = `$${fmtNum(Math.max(0, tot))}`;
+}
+document.getElementById('checkoutForm').addEventListener('submit', function(e){ 
+      e.preventDefault(); 
+      customConfirm('確認送出結算？\n(確認後將轉入對帳中心，請至該處下載單據)', function() {
+        const btn = document.getElementById('coSubmitBtn'); 
+        btn.disabled = true; 
+        btn.innerText = '處理中...'; 
+        
+        const r = currentCheckoutData.room; 
+        const rsn = document.getElementById('coReason').value; 
+        let pen = 0; 
+        if(rsn === '解約') pen = r.deposit; 
+        else if(rsn === '抵租') pen = r.rentAmount; 
+        
+        // 算出結算區間
+        const modStr = document.getElementById('coDate').value;
+        const periods = currentCheckoutData.history;
+        const lastDate = periods.length > 0 ? periods[periods.length-1].end : null;
+        const finalStart = lastDate ? (lastDate + 86400000) : (new Date(modStr).getTime() - (30 * 86400000));
+        const finalStartDateStr = new Date(finalStart).toISOString().slice(0, 10).replace(/-/g, '/');
+        const periodStr = finalStartDateStr + ' ~ ' + modStr.replace(/-/g, '/');
+
+        const pl = {
+          roomId: r.roomId, tenant: r.tenant, lastReading: r.lastReading, 
+          elecRate: r.elecRate, deposit: r.deposit, moveOutDate: modStr, 
+          finalReading: document.getElementById('coFinalReading').value, 
+          penaltyAmt: pen, reason: rsn, 
+          deductions: document.getElementById('coDeductions').value || 0, 
+          tpRefund: document.getElementById('coTpRefundPreview').dataset.amt || 0,
+          periodStr: periodStr 
+        }; 
+        
+        google.script.run.withSuccessHandler(res => { 
+          if(res.success){ 
+            showAlert('結算成功！請至對帳中心下載單據', 'green');
+            document.getElementById('checkoutForm').reset(); 
+            document.getElementById('coDetailsContainer').classList.add('hidden'); 
+            loadCheckoutRooms(); 
+          } else { 
+            showAlert(res.message, 'red');
+          } 
+          btn.disabled = false; btn.innerText = '結算並轉入對帳中心'; 
+        }).processMoveOut(pl);
+      });
+    });
+
+// === 對帳中心：下載台電結算單 (正本格式) ===
+    function downloadTpReceipt(roomId, tenant, date, amt) {
+      document.getElementById('trptRoom').innerText = roomId;
+      document.getElementById('trptTenant').innerText = tenant;
+      document.getElementById('trptDate').innerText = date;
+      
+      let amtLabel = amt >= 0 ? '應退還租客金額' : '租客應補繳金額';
+      document.getElementById('trptAmtLabel').innerText = amtLabel;
+      document.getElementById('trptAmt').innerText = `$${fmtNum(Math.abs(amt))}`;
+      document.getElementById('trptAmt').className = amt >= 0 ? "text-3xl text-[#166534]" : "text-3xl text-red-700";
+      
+      const now = new Date(); 
+      // 顯示為「產出時間」而非補印
+      document.getElementById('trptTime').innerText = `產出時間: ${now.getFullYear()}/${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      
+      const t = document.getElementById('tpReceiptTemplate');
+      t.classList.remove('hidden'); t.classList.add('block');
+      showAlert('單據產出中...', 'blue');
+      
+      setTimeout(() => {
+        html2canvas(t, { scale: 2 }).then(canvas => { 
+          t.classList.remove('block'); t.classList.add('hidden'); 
+          // 檔名移除「(補印)」字眼
+          canvas.toBlob(b => saveAs(b, `${roomId}_台電結清單.png`)); 
+          showAlert('下載完成', 'green'); 
+        }).catch(err => { t.classList.remove('block'); t.classList.add('hidden'); });
+      }, 300);
+    }
+
+// === 對帳中心：下載台電結算單 (正本格式) ===
+    function downloadTpReceipt(roomId, tenant, date, amt) {
+      document.getElementById('trptRoom').innerText = roomId;
+      document.getElementById('trptTenant').innerText = tenant;
+      document.getElementById('trptDate').innerText = date;
+      
+      let amtLabel = amt >= 0 ? '應退還租客金額' : '租客應補繳金額';
+      document.getElementById('trptAmtLabel').innerText = amtLabel;
+      document.getElementById('trptAmt').innerText = `$${fmtNum(Math.abs(amt))}`;
+      document.getElementById('trptAmt').className = amt >= 0 ? "text-3xl text-[#166534]" : "text-3xl text-red-700";
+      
+      const now = new Date(); 
+      // 顯示為「產出時間」而非補印
+      document.getElementById('trptTime').innerText = `產出時間: ${now.getFullYear()}/${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      
+      const t = document.getElementById('tpReceiptTemplate');
+      t.classList.remove('hidden'); t.classList.add('block');
+      showAlert('單據產出中...', 'blue');
+      
+      setTimeout(() => {
+        html2canvas(t, { scale: 2 }).then(canvas => { 
+          t.classList.remove('block'); t.classList.add('hidden'); 
+          // 檔名移除「(補印)」字眼
+          canvas.toBlob(b => saveAs(b, `${roomId}_台電結清單.png`)); 
+          showAlert('下載完成', 'green'); 
+        }).catch(err => { t.classList.remove('block'); t.classList.add('hidden'); });
+      }, 300);
+    }
+
+    // === 對帳中心：下載退租結算單 (正本格式) ===
+    function downloadCheckoutReceipt(dStr) {
+      const d = JSON.parse(decodeURIComponent(dStr));
+
+      document.getElementById('crtRoom').innerText = d.roomId;
+      document.getElementById('crtTenant').innerText = d.tenant;
+      document.getElementById('crtDate').innerText = d.moveOutDate;
+      document.getElementById('crtPeriod').innerText = '依系統結算紀錄'; 
+
+      let lastReading = d.finalReading - d.usage;
+      let rate = d.usage > 0 ? (d.finalElecFee / d.usage).toFixed(1) : "0";
+
+      document.getElementById('crtLastRead').innerText = Math.round(lastReading * 10) / 10;
+      document.getElementById('crtFinalRead').innerText = d.finalReading;
+      document.getElementById('crtUsage').innerText = d.usage;
+      document.getElementById('crtRate').innerText = rate;
+      document.getElementById('crtDeposit').innerText = fmtNum(d.deposit);
+      document.getElementById('crtFinalElec').innerText = fmtNum(d.finalElecFee);
+
+      document.getElementById('crtPenaltyLabel').innerText = '扣：違約與其他扣款';
+      document.getElementById('crtPenalty').innerText = fmtNum(d.totalDeductions);
+      document.getElementById('crtDeductions').innerText = '0'; 
+      document.getElementById('crtTpRefund').innerText = fmtNum(d.tpRefund);
+      document.getElementById('crtTotal').innerText = fmtNum(d.refundAmount);
+
+      // 恢復為原先標準的備註文字
+      document.getElementById('crtStatusHint').innerText = '*註：最後一期台電尚未出帳完畢，待帳單齊全後將另行多退少補*';
+      
+      const now = new Date();
+      // 顯示為「產出時間」而非補印
+      document.getElementById('crtTime').innerText = `產出時間: ${now.getFullYear()}/${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+      const t = document.getElementById('checkoutReceiptTemplate');
+      t.classList.remove('hidden'); t.classList.add('block');
+      showAlert('單據產出中...', 'blue');
+
+      setTimeout(() => {
+        html2canvas(t, { scale: 2 }).then(canvas => { 
+          t.classList.remove('block'); t.classList.add('hidden'); 
+          // 檔名移除「(補印)」字眼
+          canvas.toBlob(b => saveAs(b, `${d.roomId}_退租結算單.png`)); 
+          showAlert('下載完成', 'green'); 
+        }).catch(err => { t.classList.remove('block'); t.classList.add('hidden'); });
+      }, 300);
+    }
+    // === 5. 租客管理模組 ===
+    let globalRooms = [];
+    function loadTenants() {
+      document.getElementById('tenantContainer').innerHTML = '<p class="text-stone-400 text-center py-10 text-sm">載入中...</p>';
+      google.script.run.withSuccessHandler(data => { globalRooms = data; applyTenantFilter(); }).getAllRoomsInfo();
+    }
+// ==========================================
+// 替換這三個函數，確保沒有任何 [cite] 標籤
+// ==========================================
+
+function applyTenantFilter() {
+  const keyword = document.getElementById('tenantSearch').value.toLowerCase();
+  const filtered = globalRooms.filter(r => r.roomId.toLowerCase().includes(keyword) || r.tenant.toLowerCase().includes(keyword));
+  let html = '';
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  filtered.forEach(r => {
+    const isRented = r.status === '出租中';
+    const badge = isRented 
+      ? `<span class="bg-blue-50 text-[#075985] text-[10px] px-2 py-0.5 rounded border border-blue-200">出租中</span>` 
+      : `<span class="bg-stone-100 text-stone-500 text-[10px] px-2 py-0.5 rounded border border-stone-200">空房</span>`;
+    
+    // 合約到期警示
+    let expireWarning = '';
+    if (isRented && r.endDate && r.endDate !== '未填寫') {
+      const eDate = new Date(r.endDate);
+      const diffDays = Math.ceil((eDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      if (diffDays < 0) expireWarning = `<span class="bg-red-100 text-red-700 text-[10px] px-2 py-0.5 rounded border border-red-200 font-bold">🚨 過期</span>`;
+      else if (diffDays <= 30) expireWarning = `<span class="bg-yellow-100 text-yellow-700 text-[10px] px-2 py-0.5 rounded border border-yellow-200 font-bold">⚠️ 剩 ${diffDays} 天</span>`;
+    }
+
+    const tntStr = encodeURIComponent(JSON.stringify(r));
+
+    // ★ 優化 1：依據狀態改變卡片外觀 (空房灰底虛線、出租白底陰影)
+    const cardStyle = isRented
+      ? "bg-white border border-stone-200 shadow-sm hover:shadow-md transition-shadow"
+      : "bg-stone-50 border border-dashed border-stone-300 opacity-80";
+
+    // ★ 優化 2：將週期與餘額直接顯示在卡片上
+    const cycleText = r.payCycle ? `<span class="text-[10px] bg-white text-stone-600 px-1.5 py-0.5 rounded border border-stone-200 shadow-sm">${r.payCycle}繳</span>` : '';
+    const balanceText = (r.balance && r.balance > 0) ? `<span class="text-[10px] text-[#075985] font-bold bg-blue-50 px-1.5 py-0.5 rounded">餘額: $${fmtNum(r.balance)}</span>` : '';
+
+    // ★ 優化 3：排版資訊區塊
+    let tenantInfoHtml = isRented
+      ? `
+        <div class="mt-3 text-sm flex justify-between items-center bg-stone-50 p-2.5 rounded border border-stone-100">
+          <div class="flex flex-col gap-1">
+            <div class="text-stone-800 font-bold">$${fmtNum(r.rent)} <span class="text-[10px] font-normal text-stone-500">/ 期</span></div>
+            <div class="text-[10px] text-stone-500">合約至: ${r.endDate}</div>
+          </div>
+          <div class="flex flex-col items-end gap-1.5">
+            ${cycleText}
+            ${balanceText}
+          </div>
+        </div>
+      `
+      : `<div class="mt-3 text-sm text-center py-4 bg-stone-100 rounded text-stone-400 border border-stone-200 border-dashed">目前無人承租</div>`;
+
+    // ★ 優化 4：按鈕區塊等寬滿版對齊
+    const buttonsHtml = isRented
+      ? `
+        <button onclick="openHistoryModal('${r.roomId}')" class="flex-1 text-[#075985] bg-blue-50 py-2 rounded text-xs border border-blue-200 hover:bg-blue-100 font-medium transition-colors">📜 帳單</button>
+        <button onclick="openRenewModal('${tntStr}')" class="flex-1 text-[#166534] bg-green-50 py-2 rounded text-xs border border-green-200 hover:bg-green-100 font-medium transition-colors">📝 續約</button>
+        <button onclick="openTenantModal('${tntStr}')" class="flex-1 text-stone-600 bg-stone-100 py-2 rounded text-xs border border-stone-200 hover:bg-stone-200 font-medium transition-colors">✏️ 設定</button>
+      `
+      : `
+        <button onclick="openTenantModal('${tntStr}')" class="w-full text-stone-600 bg-white py-2 rounded text-xs border border-stone-300 hover:bg-stone-100 font-bold shadow-sm transition-colors">➕ 新增租客</button>
+      `;
+
+    html += `
+      <div class="${cardStyle} p-4 rounded-lg flex flex-col justify-between">
+        <div>
+          <div class="flex justify-between items-start mb-1.5">
+            <div class="flex items-center gap-2">
+              <span class="font-bold text-stone-800 text-xl tracking-wide">${r.roomId}</span>
+              ${badge}
+            </div>
+            ${expireWarning}
+          </div>
+          <div class="text-stone-600 font-medium text-sm ml-0.5">${isRented ? r.tenant : '-'}</div>
+          ${tenantInfoHtml}
+        </div>
+        <div class="flex gap-2 mt-4 pt-4 border-t border-stone-100">
+          ${buttonsHtml}
+        </div>
+      </div>`;
+  });
+
+  // ★ 優化 5：將單欄清單改為響應式網格 (手機 1 欄，電腦 2 欄)
+  const container = document.getElementById('tenantContainer');
+  container.className = "grid grid-cols-1 md:grid-cols-2 gap-4";
+  container.innerHTML = html || '<p class="text-stone-400 text-center py-10 text-sm col-span-full">無符合結果</p>';
+}
+
+function openTenantModal(rStr) {
+  const r = JSON.parse(decodeURIComponent(rStr));
+  document.getElementById('modTenantRoom').innerText = r.roomId;
+  document.getElementById('modTntStatus').value = r.status;
+  document.getElementById('modTntName').value = r.tenant;
+  document.getElementById('modTntEndDate').value = r.endDate === '未填寫' ? '' : r.endDate;
+  document.getElementById('modTntRent').value = r.rent;
+  document.getElementById('modTntDeposit').value = r.deposit;
+  document.getElementById('modTntElec').value = r.elecRate;
+  document.getElementById('modTntWater').value = r.waterFee;
+  document.getElementById('modTntBalance').value = r.balance || 0;
+  document.getElementById('modTntBillBalance').value = r.billBalance || 0; 
+  document.getElementById('modTntNotes').value = r.notes || '';
+  document.getElementById('modTntCycle').value = r.payCycle || '每月';
+  document.getElementById('modTntInitRead').value = r.lastReading || 0;
+  document.getElementById('modalTenant').classList.remove('hidden');
+  
+}
+
+function submitTenantEdit() {
+  const btn = event.target;
+  btn.disabled = true;
+  btn.innerText = '儲存中...';
+  
+  const payload = {
+    roomId: document.getElementById('modTenantRoom').innerText,
+    status: document.getElementById('modTntStatus').value,
+    tenant: document.getElementById('modTntName').value,
+    endDate: document.getElementById('modTntEndDate').value,
+    rent: document.getElementById('modTntRent').value,
+    deposit: document.getElementById('modTntDeposit').value,
+    elecRate: document.getElementById('modTntElec').value,
+    waterFee: document.getElementById('modTntWater').value,
+    balance: document.getElementById('modTntBalance').value || 0,
+    billBalance: document.getElementById('modTntBillBalance').value || 0,
+    notes: document.getElementById('modTntNotes').value,
+    payCycle: document.getElementById('modTntCycle').value,
+    lastReading: document.getElementById('modTntInitRead').value
+  };
+  
+  google.script.run.withSuccessHandler(res => {
+    showAlert(res.message, res.success ? 'green' : 'red');
+    if(res.success) {
+      document.getElementById('modalTenant').classList.add('hidden');
+      loadTenants();
+    }
+    btn.disabled = false;
+    btn.innerText = '儲存設定';
+  }).saveTenantInfo(payload);
+}
+    // === 新增：一鍵複製 LINE 催繳文案 ===
+    function copyReminderText(billId) {
+      const b = globalUnpaidBills.find(x => x.billId === billId);
+      if(!b) return;
+
+      // 取得預設繳款期限 (今天 + 寬限期)
+      let d = new Date();
+      d.setDate(d.getDate() + BANK_INFO.deadlineDays);
+      const deadline = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+
+      // 組合超完美禮貌催繳文案
+      const text = `【房屋繳費通知】\n房號：${b.roomId} (${b.tenant})\n計費月份：${b.yearMonth}\n本期應繳總計：$${fmtNum(b.totalAmount)}\n繳款期限：${deadline} 前\n\n🏦 匯款資訊\n銀行：${BANK_INFO.name}\n帳號：${BANK_INFO.account}\n戶名：${BANK_INFO.user}\n\n再麻煩您撥冗繳納，匯款後請截圖或告知末五碼，謝謝您！`;
+
+      // 執行複製動作 (包含相容性處理)
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(() => {
+          showAlert('📱 已複製催繳文案，可直接貼上 LINE！', 'green');
+        }).catch(err => {
+          showAlert('複製失敗，請確認瀏覽器權限', 'red');
+        });
+      } else {
+        // 舊版瀏覽器或非 HTTPS 環境的備用方案
+        let textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+          document.execCommand('copy');
+          showAlert('📱 已複製催繳文案，可直接貼上 LINE！', 'green');
+        } catch (err) {
+          showAlert('複製失敗，請手動複製', 'red');
+        }
+        document.body.removeChild(textArea);
+      }
+    }
+// === 共用提示訊息 (結合快取自動清除機制) ===
+    function showAlert(msg, color) { 
+      const alertBox = document.getElementById('statusAlert');
+      alertBox.innerText = msg; 
+      const bg = color === 'red' ? 'bg-[#fef2f2] text-[#991b1b]' : color === 'blue' ? 'bg-[#f0f9ff] text-[#075985]' : 'bg-[#f6fcf7] text-[#166534]'; 
+      alertBox.className = `fixed top-20 left-1/2 transform -translate-x-1/2 w-11/12 max-w-sm z-50 p-4 border rounded shadow-sm text-sm font-bold text-center ${bg}`;
+      alertBox.classList.remove('hidden'); 
+      setTimeout(() => alertBox.classList.add('hidden'), 3500); 
+
+      // 🚀 效能優化：如果系統發出「成功(綠色)」的提示，代表資料庫有更新。
+      // 此時全自動清空快取，確保你下次切換分頁時抓取到最新數據！
+      if (color === 'green') {
+        cacheStatus = { dashboard: false, billing: false, checkout: false, tenant: false };
+      }
+    }
+  function submitPublicElec() {
+  const amt = document.getElementById('publicElecAmt').value;
+  if(!amt) { showAlert('請輸入金額', 'red'); return; }
+  showAlert('計算中...', 'blue');
+  google.script.run.withSuccessHandler(res => {
+    showAlert(res.message, res.success ? 'green' : 'red');
+    if(res.success) document.getElementById('publicElecAmt').value = '';
+  }).distributePublicElectricity(amt);
+}
+
+function openRenewModal(rStr) {
+  const r = JSON.parse(decodeURIComponent(rStr));
+  if(r.status !== '出租中') { showAlert('空房無法續約', 'red'); return; }
+  document.getElementById('renewRoomTitle').innerText = r.roomId;
+  document.getElementById('renewRoomId').value = r.roomId;
+  document.getElementById('renewRent').value = r.rent;
+  document.getElementById('renewEndDate').value = '';
+  document.getElementById('modalRenew').classList.remove('hidden');
+}
+
+function submitRenewContract() {
+  const payload = {
+    roomId: document.getElementById('renewRoomId').value,
+    newEndDate: document.getElementById('renewEndDate').value,
+    newRent: document.getElementById('renewRent').value
+  };
+  if(!payload.newEndDate) { showAlert('請選擇新合約到期日', 'red'); return; }
+  
+  document.getElementById('modalRenew').classList.add('hidden');
+  showAlert('處理中...', 'blue');
+  google.script.run.withSuccessHandler(res => {
+    showAlert(res.message, res.success ? 'green' : 'red');
+    if(res.success) loadTenants();
+  }).renewContract(payload);
+}
+
+function openHistoryModal(roomId) {
+  document.getElementById('histRoomTitle').innerText = roomId;
+  document.getElementById('histContainer').innerHTML = '<p class="text-stone-400 text-center py-6 text-sm">讀取中...</p>';
+  document.getElementById('modalHistory').classList.remove('hidden');
+  
+  google.script.run.withSuccessHandler(history => {
+    let html = '';
+    if(history.length === 0) html = '<p class="text-stone-400 text-center py-6 text-sm">無歷史帳單</p>';
+    history.forEach(h => {
+      const isPaid = h.status === '已收';
+      const badge = isPaid ? `<span class="text-[10px] text-[#166534] bg-green-50 border border-green-200 px-1 rounded">已結清</span>` : `<span class="text-[10px] text-red-700 bg-red-50 border border-red-200 px-1 rounded">未收</span>`;
+      const hStr = encodeURIComponent(JSON.stringify(h));
+      html += `
+        <div class="border border-stone-200 p-2 rounded mb-2 flex justify-between items-center text-sm">
+          <div>
+            <div class="font-bold text-stone-700">${h.yearMonth} <span class="ml-1">${badge}</span></div>
+            <div class="text-[10px] text-stone-400 mt-1">金額: $${fmtNum(h.totalAmount)} | 收款日: ${h.payDate}</div>
+          </div>
+          <button onclick="reprintBill('${hStr}')" class="text-[11px] bg-stone-100 border border-stone-200 px-2 py-1 rounded text-stone-600 hover:bg-stone-200">補印</button>
+        </div>`;
+    });
+    document.getElementById('histContainer').innerHTML = html;
+  }).getHistoricalBills(roomId);
+}
+
+function reprintBill(hStr) {
+  const bill = JSON.parse(decodeURIComponent(hStr));
+  fillInvoiceTemplate(bill);
+  const t = document.getElementById('receiptTemplate');
+  t.classList.remove('hidden'); t.classList.add('block');
+  showAlert('單據產出中...', 'blue');
+  setTimeout(() => {
+    html2canvas(t, { scale: 2 }).then(canvas => { 
+      t.classList.remove('block'); t.classList.add('hidden'); 
+      canvas.toBlob(b => saveAs(b, `${bill.roomId}_${bill.yearMonth}_補印繳費單.png`)); 
+      showAlert('下載完成', 'green'); 
+    }).catch(err => { t.classList.remove('block'); t.classList.add('hidden'); showAlert('產圖失敗', 'red'); });
+  }, 300);
+}
+    // ══════════════════════════════════════════════════════
+    // 設定頁：讀取與儲存
+    // ══════════════════════════════════════════════════════
+    function loadSettings() {
+      google.script.run.withSuccessHandler(res => {
+        if (!res || !res.success) return;
+        const cfg = res.data;
+        document.getElementById('cfgBankName').value    = cfg['bank_name']    || '';
+        document.getElementById('cfgBankAccount').value = cfg['bank_account'] || '';
+        document.getElementById('cfgBankUser').value    = cfg['bank_user']    || '';
+        document.getElementById('cfgDeadlineDays').value= cfg['deadline_days']|| '5';
+        document.getElementById('cfgOwnerName').value   = cfg['owner_name']   || '';
+        document.getElementById('cfgSystemNote').value  = cfg['system_note']  || '';
+        if (cfg['bank_name'])     BANK_INFO.name = cfg['bank_name'];
+        if (cfg['bank_account'])  BANK_INFO.account = cfg['bank_account'];
+        if (cfg['bank_user'])     BANK_INFO.user = cfg['bank_user'];
+        if (cfg['deadline_days']) BANK_INFO.deadlineDays = parseInt(cfg['deadline_days']) || 5;
+        BANK_INFO.ownerName  = cfg['owner_name']  || '';
+        BANK_INFO.systemNote = cfg['system_note'] || '';
+        const urlEl = document.getElementById('cfgCurrentUrl');
+        if (urlEl) urlEl.innerText = window._gasApiUrl || '(GAS 原生模式)';
+      }).getSettings();
+    }
+
+    function submitSettings(btn) {
+      btn.disabled = true; btn.innerText = '儲存中...';
+      const payload = {
+        bank_name:     document.getElementById('cfgBankName').value,
+        bank_account:  document.getElementById('cfgBankAccount').value,
+        bank_user:     document.getElementById('cfgBankUser').value,
+        deadline_days: document.getElementById('cfgDeadlineDays').value || '5',
+        owner_name:    document.getElementById('cfgOwnerName').value,
+        system_note:   document.getElementById('cfgSystemNote').value,
+      };
+      google.script.run.withSuccessHandler(res => {
+        showAlert(res && res.message ? res.message : (res && res.success ? '設定已儲存' : '儲存失敗'), res && res.success ? 'green' : 'red');
+        if (res && res.success) {
+          BANK_INFO.name = payload.bank_name || BANK_INFO.name;
+          BANK_INFO.account = payload.bank_account || BANK_INFO.account;
+          BANK_INFO.user = payload.bank_user || BANK_INFO.user;
+          BANK_INFO.deadlineDays = parseInt(payload.deadline_days) || 5;
+          BANK_INFO.ownerName = payload.owner_name;
+          BANK_INFO.systemNote = payload.system_note;
+        }
+        btn.disabled = false; btn.innerText = '儲存所有設定';
+      }).saveSettings(payload);
+    }
+
+
+  </script>
+      <div id="modalCustomConfirm" class="hidden fixed inset-0 modal-bg z-[60] flex items-center justify-center p-4">
+      <div class="bg-white rounded p-6 w-full max-w-sm text-center shadow-lg border border-stone-200">
+        <div class="w-12 h-12 bg-blue-50 text-[#075985] rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold">?</div>
+        <h3 class="font-bold text-lg mb-2 text-stone-800">系統確認</h3>
+        <p id="ccMsg" class="text-sm text-stone-600 mb-6 whitespace-pre-line"></p>
+        <div class="flex gap-3">
+          <button onclick="closeCustomConfirm(false)" class="flex-1 bg-stone-100 hover:bg-stone-200 py-2.5 rounded text-stone-700 font-medium text-sm transition-colors">取消</button>
+          <button onclick="closeCustomConfirm(true)" class="flex-1 bg-stone-800 hover:bg-stone-700 py-2.5 rounded text-white font-medium text-sm transition-colors">確認執行</button>
+        </div>
+      </div>
+    </div>
+    <div id="modalHistory" class="hidden fixed inset-0 modal-bg z-[55] flex items-center justify-center p-4">
+      <div class="bg-white rounded p-5 w-full max-w-md max-h-[85vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-4 border-b pb-2">
+          <h3 class="font-bold text-lg text-[#075985]">📜 歷史帳單紀錄</h3>
+          <button onclick="document.getElementById('modalHistory').classList.add('hidden')" class="text-stone-400 text-xl font-bold">&times;</button>
+        </div>
+        <p class="text-xs text-stone-500 mb-3">房號：<span id="histRoomTitle" class="font-bold text-stone-800"></span></p>
+        <div id="histContainer" class="space-y-3"><p class="text-stone-400 text-center py-6 text-sm">讀取中...</p></div>
+      </div>
+    </div>
+
+    <div id="modalRenew" class="hidden fixed inset-0 modal-bg z-[55] flex items-center justify-center p-4">
+      <div class="bg-white rounded p-5 w-full max-w-sm">
+        <h3 class="font-bold text-lg mb-4 text-[#075985] border-b pb-2">📝 租客續約設定</h3>
+        <p class="text-xs text-stone-500 mb-4">房號：<span id="renewRoomTitle" class="font-bold text-stone-800"></span></p>
+        <input type="hidden" id="renewRoomId">
+        
+        <div class="space-y-4 mb-6">
+          <div>
+            <label class="block text-sm font-medium text-stone-600 mb-1">新合約到期日</label>
+            <input type="date" id="renewEndDate" class="w-full px-3 py-2 border border-stone-300 bg-[#f9f9f8] rounded">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-stone-600 mb-1">新合約租金 <span class="text-[10px] text-stone-400">(若無調漲請保持原狀)</span></label>
+            <input type="number" id="renewRent" class="w-full px-3 py-2 border border-blue-300 bg-blue-50 rounded font-bold text-[#075985]">
+          </div>
+        </div>
+        
+        <div class="flex gap-2">
+          <button onclick="document.getElementById('modalRenew').classList.add('hidden')" class="flex-1 bg-stone-200 py-2 rounded text-stone-700 text-sm">取消</button>
+          <button onclick="submitRenewContract()" class="flex-1 bg-[#075985] py-2 rounded text-white text-sm font-medium">確認續約</button>
+        </div>
+      </div>
+    </div>
+</body>
+</html>
