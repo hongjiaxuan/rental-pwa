@@ -186,6 +186,7 @@
       <div id="checkoutSection" class="hidden space-y-3">
         <div class="flex justify-between items-center mb-2 border-b border-stone-200 pb-2">
           <h2 class="text-lg font-medium text-stone-800">退租結算作業</h2>
+          <button onclick="showTpAnnual()" class="text-xs bg-amber-100 text-amber-800 border border-amber-300 px-3 py-1.5 rounded shadow-sm font-medium">⚡ 台電年度結算</button>
         </div>
         <div class="bg-white border border-stone-200 p-5 rounded shadow-sm">
           <form id="checkoutForm" class="space-y-5">
@@ -221,6 +222,43 @@
           </form>
         </div>
       </div>
+      <!-- 台電年度結算區塊（退租分頁內） -->
+      <div id="tpAnnualSection" class="hidden space-y-3">
+        <div class="flex justify-between items-center mb-2 border-b border-stone-200 pb-2">
+          <h2 class="text-lg font-medium text-stone-800">台電年度結算</h2>
+          <button onclick="switchTab('checkout')" class="text-xs bg-stone-100 px-3 py-1.5 text-stone-600 border border-stone-200 rounded shadow-sm">← 返回退租</button>
+        </div>
+        <div class="bg-white border border-stone-200 p-4 rounded shadow-sm">
+          <div>
+            <label class="block text-xs font-medium text-stone-600 mb-1">選擇房號（出租中）</label>
+            <select id="tpAnnualRoom" class="w-full px-3 py-2 border border-stone-300 bg-[#f9f9f8] rounded" onchange="loadAnnualTpData()">
+              <option value="">請選擇...</option>
+            </select>
+          </div>
+          <div id="tpAnnualDetails" class="hidden space-y-4 mt-4">
+            <div class="bg-stone-50 border border-stone-200 p-3 rounded text-sm space-y-1">
+              <p>房號：<span id="tpAnnualRoomId" class="font-bold"></span>　租客：<span id="tpAnnualTenant" class="font-bold"></span></p>
+              <p>合約期間：<span id="tpAnnualStart"></span> ～ <span id="tpAnnualEnd"></span></p>
+            </div>
+            <div id="tpDiffBox" class="p-4 rounded border text-center">
+              <p class="text-xs text-stone-500 mb-1">台電差額（正數=退款給租客；負數=向租客補收）</p>
+              <p class="text-2xl font-bold" id="tpDiffAmt">計算中...</p>
+            </div>
+            <div class="space-y-3">
+              <div>
+                <label class="block text-xs font-medium text-stone-600 mb-1">新合約到期日</label>
+                <input type="date" id="tpAnnualNewEnd" class="w-full px-3 py-2 border border-stone-300 bg-[#f9f9f8] rounded">
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-stone-600 mb-1">新租金（若不調整請保持原值）</label>
+                <input type="number" id="tpAnnualNewRent" class="w-full px-3 py-2 border border-stone-300 bg-[#f9f9f8] rounded" placeholder="0">
+              </div>
+            </div>
+            <button onclick="submitAnnualTp()" id="tpAnnualSubmitBtn" class="w-full bg-stone-800 text-white font-medium py-3 rounded">確認結算並續約</button>
+          </div>
+        </div>
+      </div>
+
       <div id="tenantSection" class="hidden space-y-3">
         <div class="sticky top-[60px] z-10 bg-white border-b border-stone-200 pb-3 mb-3 pt-2 shadow-sm">
           <div class="flex justify-between items-center mb-3 px-1">
@@ -234,6 +272,40 @@
 
         <div id="tenantContainer" class="space-y-3"><p class="text-stone-400 text-center py-10 text-sm">載入中...</p></div>
       </div>
+      <!-- ★ 報表頁 -->
+      <div id="reportSection" class="hidden space-y-4">
+        <div class="border-b border-stone-200 pb-2 mb-2 flex justify-between items-center">
+          <h2 class="text-lg font-bold text-stone-800">收款報表</h2>
+        </div>
+        <!-- 年度選擇 + 按鈕 -->
+        <div class="flex gap-2 items-center">
+          <select id="reportYear" class="flex-1 px-3 py-2 border border-stone-300 bg-[#f9f9f8] rounded text-sm"></select>
+          <button onclick="loadReport()" class="bg-stone-800 text-white px-4 py-2 rounded text-sm font-medium">載入</button>
+          <button onclick="exportReportCSV()" class="bg-stone-100 text-stone-700 border border-stone-300 px-3 py-2 rounded text-sm">匯出CSV</button>
+        </div>
+        <!-- 統計卡片 -->
+        <div class="grid grid-cols-3 gap-2" id="reportStatCards">
+          <div class="bg-stone-50 border border-stone-200 p-3 rounded text-center">
+            <p class="text-[10px] text-stone-500 mb-1">本年度收入</p>
+            <p class="text-lg font-bold text-stone-800" id="rptYearTotal">-</p>
+          </div>
+          <div class="bg-stone-50 border border-stone-200 p-3 rounded text-center">
+            <p class="text-[10px] text-stone-500 mb-1">去年收入</p>
+            <p class="text-lg font-bold text-stone-500" id="rptLastYearTotal">-</p>
+          </div>
+          <div class="bg-stone-50 border border-stone-200 p-3 rounded text-center">
+            <p class="text-[10px] text-stone-500 mb-1">月平均</p>
+            <p class="text-lg font-bold text-stone-800" id="rptMonthAvg">-</p>
+          </div>
+        </div>
+        <!-- 月份收款明細表 -->
+        <div class="bg-white border border-stone-200 rounded shadow-sm overflow-x-auto">
+          <div id="reportTableWrap">
+            <p class="text-stone-400 text-center py-10 text-sm">請選擇年度後點擊「載入」</p>
+          </div>
+        </div>
+      </div>
+
       <!-- ★ 設定頁 -->
       <div id="settingsSection" class="hidden space-y-4">
         <div class="border-b border-stone-200 pb-2 mb-2">
@@ -317,6 +389,10 @@
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
         <span class="text-[9px] font-medium">租客</span>
       </button>
+      <button onclick="switchTab('report')" id="tabReport" class="flex flex-col items-center py-1.5 px-0.5 text-stone-400 flex-1 gap-0.5">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        <span class="text-[9px] font-medium">報表</span>
+      </button>
       <button onclick="switchTab('settings')" id="tabSettings" class="flex flex-col items-center py-1.5 px-0.5 text-stone-400 flex-1 gap-0.5">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
         <span class="text-[9px] font-medium">設定</span>
@@ -390,7 +466,11 @@
           <div class="border-t border-stone-200 pt-3 mt-2">
             <label class="block text-stone-600 mb-1">🛠️ 房間修繕與備註紀錄</label>
             <textarea id="modTntNotes" rows="3" class="w-full px-3 py-2 border border-stone-300 bg-[#fefce8] rounded text-sm placeholder-stone-400" placeholder="例如：&#10;2026/02/15：更換冷氣機板 $3500&#10;2026/03/10：租客反應浴室漏水已處理"></textarea>
-          </div>    
+          </div>
+          <div class="border-t border-stone-200 pt-3 mt-2">
+            <label class="block text-stone-600 mb-1">📋 租客基本資料備註</label>
+            <textarea id="modTntRemark" rows="2" class="w-full px-3 py-2 border border-stone-300 bg-[#f0f9ff] rounded text-sm placeholder-stone-400" placeholder="例如：緊急聯絡人、寵物、停車位、特殊約定..."></textarea>
+          </div>
         </div>
         <div class="flex gap-2">
           <button onclick="document.getElementById('modalTenant').classList.add('hidden')" class="flex-1 bg-stone-200 py-2 rounded text-stone-700 text-sm">取消</button>
@@ -639,7 +719,8 @@
       billing: false,
       checkout: false,
       tenant: false,
-      settings: false
+      settings: false,
+      report: false
     };
 
     window.onload = function() { 
@@ -649,7 +730,7 @@
     };
 
     function switchTab(tab) {
-      const tabs = ['dashboard', 'meter', 'billing', 'taipower', 'checkout', 'tenant', 'settings'];
+      const tabs = ['dashboard', 'meter', 'billing', 'taipower', 'checkout', 'tpAnnual', 'tenant', 'settings', 'report'];
       const inactiveClass = "flex flex-col items-center py-1.5 px-0.5 text-stone-400 flex-1 gap-0.5 transition-colors";
       const activeClass   = "flex flex-col items-center py-1.5 px-0.5 text-stone-800 flex-1 gap-0.5 border-t-2 border-stone-800 bg-stone-50 transition-colors";
       tabs.forEach(t => { 
@@ -693,6 +774,11 @@
         document.getElementById('headerTitle').innerText = '租客管理'; 
         if (!cacheStatus.tenant) { loadTenants(); cacheStatus.tenant = true; }
         
+      } else if (tab === 'report') {
+        document.getElementById('reportSection').classList.remove('hidden');
+        document.getElementById('tabReport').className = activeClass;
+        document.getElementById('headerTitle').innerText = '收款報表';
+        if (!cacheStatus.report) { initReportYear(); cacheStatus.report = true; }
       } else if (tab === 'settings') {
         document.getElementById('settingsSection').classList.remove('hidden');
         document.getElementById('tabSettings').className = activeClass;
@@ -1805,6 +1891,7 @@ function openTenantModal(rStr) {
   document.getElementById('modTntBalance').value = r.balance || 0;
   document.getElementById('modTntBillBalance').value = r.billBalance || 0; 
   document.getElementById('modTntNotes').value = r.notes || '';
+  document.getElementById('modTntRemark').value = r.remark || '';
   document.getElementById('modTntCycle').value = r.payCycle || '每月';
   document.getElementById('modTntInitRead').value = r.lastReading || 0;
   document.getElementById('modalTenant').classList.remove('hidden');
@@ -1828,6 +1915,7 @@ function submitTenantEdit() {
     balance: document.getElementById('modTntBalance').value || 0,
     billBalance: document.getElementById('modTntBillBalance').value || 0,
     notes: document.getElementById('modTntNotes').value,
+    remark: document.getElementById('modTntRemark').value,
     payCycle: document.getElementById('modTntCycle').value,
     lastReading: document.getElementById('modTntInitRead').value
   };
@@ -2017,6 +2105,187 @@ function reprintBill(hStr) {
       }).saveSettings(payload);
     }
 
+    // ═══════════════════════════════════════════════
+    // 台電年度結算
+    // ═══════════════════════════════════════════════
+    function showTpAnnual() {
+      switchTab('tpAnnual');
+      document.getElementById('headerTitle').innerText = '台電年度結算';
+      const sel = document.getElementById('tpAnnualRoom');
+      if (sel.options.length <= 1) {
+        google.script.run.withSuccessHandler(rooms => {
+          sel.innerHTML = '<option value="">請選擇...</option>';
+          rooms.forEach(r => { sel.innerHTML += `<option value="${r.roomId}">${r.roomId} (${r.tenant})</option>`; });
+        }).getRentedRooms();
+      }
+    }
+
+    let _tpAnnualData = null;
+    function loadAnnualTpData() {
+      const roomId = document.getElementById('tpAnnualRoom').value;
+      const details = document.getElementById('tpAnnualDetails');
+      details.classList.add('hidden');
+      if (!roomId) return;
+      showAlert('載入台電資料中...', 'blue');
+      google.script.run
+        .withSuccessHandler(data => {
+          _tpAnnualData = data;
+          document.getElementById('tpAnnualRoomId').innerText = data.room.roomId;
+          document.getElementById('tpAnnualTenant').innerText = data.room.tenant;
+          document.getElementById('tpAnnualStart').innerText = data.room.startDate;
+          document.getElementById('tpAnnualEnd').innerText = data.room.endDate;
+          document.getElementById('tpAnnualNewEnd').value = '';
+          document.getElementById('tpAnnualNewRent').value = data.room.rent || '';
+          // 計算差額：加總 history 中各期租客電費 vs 台電實際費用
+          let tenantPaid = 0, tpActual = 0;
+          (data.history || []).forEach(h => {
+            tenantPaid += h.kwh * h.rate;
+          });
+          (data.tpPrivate || []).forEach(tp => {
+            const overlap = data.history.filter(h => h.start < tp.end && h.end > tp.start);
+            overlap.forEach(h => {
+              const s = Math.max(h.start, tp.start), e = Math.min(h.end, tp.end);
+              const days = (e - s) / 86400000;
+              const totalDays = (h.end - h.start) / 86400000 || 1;
+              tpActual += h.kwh * (days / totalDays) * tp.rate;
+            });
+          });
+          const diff = Math.round(tenantPaid - tpActual);
+          const box = document.getElementById('tpDiffBox');
+          const amt = document.getElementById('tpDiffAmt');
+          amt.innerText = (diff >= 0 ? '+' : '') + '$' + diff.toLocaleString();
+          box.className = 'p-4 rounded border text-center ' + (diff >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200');
+          amt.className = 'text-2xl font-bold ' + (diff >= 0 ? 'text-green-700' : 'text-red-700');
+          _tpAnnualData._calcDiff = diff;
+          details.classList.remove('hidden');
+          showAlert('', '');
+        })
+        .withFailureHandler(err => showAlert('載入失敗：' + err.message, 'red'))
+        .getRoomAnnualTpData(roomId);
+    }
+
+    function submitAnnualTp() {
+      if (!_tpAnnualData) return;
+      const newEnd = document.getElementById('tpAnnualNewEnd').value;
+      if (!newEnd) { showAlert('請填寫新合約到期日', 'red'); return; }
+      const btn = document.getElementById('tpAnnualSubmitBtn');
+      btn.disabled = true; btn.innerText = '處理中...';
+      const payload = {
+        roomId:      _tpAnnualData.room.roomId,
+        tenant:      _tpAnnualData.room.tenant,
+        tpDiff:      _tpAnnualData._calcDiff,
+        startDate:   _tpAnnualData.room.startDate,
+        endDate:     _tpAnnualData.room.endDate,
+        newEndDate:  newEnd,
+        newRent:     Number(document.getElementById('tpAnnualNewRent').value) || 0
+      };
+      google.script.run
+        .withSuccessHandler(res => {
+          showAlert(res.message, res.success ? 'green' : 'red');
+          btn.disabled = false; btn.innerText = '確認結算並續約';
+          if (res.success) {
+            document.getElementById('tpAnnualRoom').value = '';
+            document.getElementById('tpAnnualDetails').classList.add('hidden');
+            _tpAnnualData = null;
+          }
+        })
+        .withFailureHandler(err => {
+          showAlert('錯誤：' + err.message, 'red');
+          btn.disabled = false; btn.innerText = '確認結算並續約';
+        })
+        .processAnnualTpReconciliation(payload);
+    }
+
+    // ═══════════════════════════════════════════════
+    // 報表分頁
+    // ═══════════════════════════════════════════════
+    function initReportYear() {
+      const sel = document.getElementById('reportYear');
+      const now = new Date().getFullYear();
+      sel.innerHTML = '';
+      for (let y = now; y >= now - 4; y--) {
+        sel.innerHTML += `<option value="${y}">${y} 年</option>`;
+      }
+    }
+
+    function loadReport() {
+      const year = document.getElementById('reportYear').value;
+      showAlert('載入報表中...', 'blue');
+      google.script.run
+        .withSuccessHandler(statsRes => {
+          if (statsRes.success) {
+            const d = statsRes.data;
+            document.getElementById('rptYearTotal').innerText = '$' + (d.yearTotal || 0).toLocaleString();
+            document.getElementById('rptLastYearTotal').innerText = '$' + (d.lastYearTotal || 0).toLocaleString();
+            const avg = d.yearCount > 0 ? Math.round(d.yearTotal / Math.min(new Date().getMonth() + 1, 12)) : 0;
+            document.getElementById('rptMonthAvg').innerText = '$' + avg.toLocaleString();
+          }
+        }).getReportData({});
+
+      google.script.run
+        .withSuccessHandler(res => {
+          showAlert('', '');
+          if (!res.success) { showAlert(res.message || '報表載入失敗', 'red'); return; }
+          const d = res.data;
+          if (!d.months || d.months.length === 0) {
+            document.getElementById('reportTableWrap').innerHTML = '<p class="text-stone-400 text-center py-10 text-sm">該年度無資料</p>';
+            return;
+          }
+          let html = '<table class="w-full text-xs border-collapse">';
+          html += '<thead><tr class="bg-stone-800 text-white">';
+          ['月份','房號','租客','租金','電費','水費','其他','應收','已收','未收'].forEach(h => {
+            html += `<th class="px-2 py-2 text-center whitespace-nowrap">${h}</th>`;
+          });
+          html += '</tr></thead><tbody>';
+          d.months.forEach(ym => {
+            const rows = Object.values(d.monthData[ym] || {});
+            rows.sort((a, b) => a.rid.localeCompare(b.rid));
+            rows.forEach((r, i) => {
+              html += `<tr class="${i % 2 === 0 ? 'bg-white' : 'bg-stone-50'} border-b border-stone-100">`;
+              html += `<td class="px-2 py-1.5 text-center">${i === 0 ? ym : ''}</td>`;
+              html += `<td class="px-2 py-1.5 text-center font-medium">${r.rid}</td>`;
+              html += `<td class="px-2 py-1.5">${r.tenant}</td>`;
+              html += `<td class="px-2 py-1.5 text-right">${(r.rent||0).toLocaleString()}</td>`;
+              html += `<td class="px-2 py-1.5 text-right">${(r.elec||0).toLocaleString()}</td>`;
+              html += `<td class="px-2 py-1.5 text-right">${(r.water||0).toLocaleString()}</td>`;
+              html += `<td class="px-2 py-1.5 text-right">${(r.extra||0).toLocaleString()}</td>`;
+              html += `<td class="px-2 py-1.5 text-right font-medium">${(r.totalAmt||0).toLocaleString()}</td>`;
+              html += `<td class="px-2 py-1.5 text-right text-green-700">${(r.paid||0).toLocaleString()}</td>`;
+              html += `<td class="px-2 py-1.5 text-right ${r.unpaid > 0 ? 'text-red-600 font-bold' : 'text-stone-400'}">${(r.unpaid||0).toLocaleString()}</td>`;
+              html += '</tr>';
+            });
+            const s = d.monthSummary[ym] || {};
+            html += `<tr class="bg-stone-200 font-bold border-t-2 border-stone-400">`;
+            html += `<td class="px-2 py-1.5 text-center" colspan="3">${ym} 小計</td>`;
+            html += `<td class="px-2 py-1.5 text-right">${(s.sumRent||0).toLocaleString()}</td>`;
+            html += `<td class="px-2 py-1.5 text-right">${(s.sumElec||0).toLocaleString()}</td>`;
+            html += `<td class="px-2 py-1.5 text-right">${(s.sumWater||0).toLocaleString()}</td>`;
+            html += `<td class="px-2 py-1.5 text-right">${(s.sumExtra||0).toLocaleString()}</td>`;
+            html += `<td class="px-2 py-1.5 text-right">${((s.sumPaid||0)+(s.sumUnpaid||0)).toLocaleString()}</td>`;
+            html += `<td class="px-2 py-1.5 text-right text-green-700">${(s.sumPaid||0).toLocaleString()}</td>`;
+            html += `<td class="px-2 py-1.5 text-right text-red-600">${(s.sumUnpaid||0).toLocaleString()}</td>`;
+            html += '</tr>';
+          });
+          html += '</tbody></table>';
+          document.getElementById('reportTableWrap').innerHTML = html;
+        })
+        .withFailureHandler(err => showAlert('報表錯誤：' + err.message, 'red'))
+        .getMonthlyReport(year);
+    }
+
+    function exportReportCSV() {
+      const year = document.getElementById('reportYear').value;
+      showAlert('產出 CSV 中...', 'blue');
+      google.script.run
+        .withSuccessHandler(res => {
+          showAlert('', '');
+          if (!res.success) { showAlert(res.message || '匯出失敗', 'red'); return; }
+          const blob = new Blob([res.csv], { type: 'text/csv;charset=utf-8;' });
+          saveAs(blob, res.filename || (year + '_月份收款明細.csv'));
+        })
+        .withFailureHandler(err => showAlert('匯出錯誤：' + err.message, 'red'))
+        .exportMonthlyReportCSV(year);
+    }
 
   </script>
       <div id="modalCustomConfirm" class="hidden fixed inset-0 modal-bg z-[60] flex items-center justify-center p-4">
