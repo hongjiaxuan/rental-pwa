@@ -51,7 +51,7 @@ function doPost(e) {
       getReportData:                () => getReportData(payload),
     };
 
-    if (\!ALLOWED[fn]) {
+    if (!ALLOWED[fn]) {
       output.setContent(JSON.stringify({ __gasError: '不允許的操作：' + fn }));
       return output;
     }
