@@ -33,8 +33,16 @@
 <body class="bg-[#f9f9f8] text-stone-800 antialiased font-sans pb-24">
   <div class="w-full md:max-w-3xl lg:max-w-4xl mx-auto bg-white min-h-screen shadow-sm relative border-x border-stone-200">
     
-    <header class="bg-stone-800 text-[#f9f9f8] p-4 sticky top-0 z-20 flex justify-between items-center shadow-md">
+    <header class="bg-stone-800 text-[#f9f9f8] px-4 py-3 sticky top-0 z-20 flex justify-between items-center shadow-md">
       <h1 class="text-xl font-medium tracking-wide" id="headerTitle">套房管理</h1>
+      <div class="flex gap-1">
+        <button onclick="switchTab('report')" title="收款報表" class="p-2 rounded hover:bg-stone-700 transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        </button>
+        <button onclick="switchTab('settings')" title="系統設定" class="p-2 rounded hover:bg-stone-700 transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        </button>
+      </div>
     </header>
 
     <main class="p-4">
@@ -130,7 +138,11 @@
       </div>
 
       <div id="billingSection" class="hidden space-y-3">
-        <div class="sticky top-[60px] z-10 bg-white border-b border-stone-200 pb-3 mb-3 pt-2 shadow-sm">
+        <div class="flex -mx-4 -mt-4 mb-1 border-b border-stone-200 bg-white sticky top-[56px] z-20">
+          <button id="subTabBilling" onclick="switchTab('billing')" class="flex-1 py-2.5 text-sm font-semibold text-stone-800 border-b-2 border-stone-800 -mb-px">收款對帳</button>
+          <button id="subTabTaipower" onclick="switchTab('taipower')" class="flex-1 py-2.5 text-sm font-medium text-stone-400 border-b-2 border-transparent -mb-px">台電帳單</button>
+        </div>
+        <div class="sticky top-[100px] z-10 bg-white border-b border-stone-200 pb-3 mb-3 pt-2 shadow-sm">
           <div class="flex justify-between items-center mb-3 px-1">
             <div class="text-sm font-bold text-stone-600">批次操作</div>
             <div class="space-x-1">
@@ -152,6 +164,10 @@
       </div>
 
       <div id="taipowerSection" class="hidden">
+        <div class="flex -mx-4 -mt-4 mb-4 border-b border-stone-200 bg-white sticky top-[56px] z-20">
+          <button onclick="switchTab('billing')" class="flex-1 py-2.5 text-sm font-medium text-stone-400 border-b-2 border-transparent -mb-px">收款對帳</button>
+          <button onclick="switchTab('taipower')" class="flex-1 py-2.5 text-sm font-semibold text-stone-800 border-b-2 border-stone-800 -mb-px">台電帳單</button>
+        </div>
         <div class="flex border-b border-stone-200 mb-6">
           <button onclick="toggleTpMode('input')" id="btnTpInput" class="w-1/2 py-3 text-sm font-medium border-b-2 border-stone-800 text-stone-800">登錄帳單</button>
           <button onclick="toggleTpMode('refund')" id="btnTpRefund" class="w-1/2 py-3 text-sm font-medium border-b-2 border-transparent text-stone-400">退費結案</button>
@@ -388,10 +404,6 @@
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2zM10 8.5a.5.5 0 11-1 0 .5.5 0 011 0zm5 5a.5.5 0 11-1 0 .5.5 0 011 0z"/></svg>
         <span class="text-[9px] font-medium">對帳</span>
       </button>
-      <button onclick="switchTab('taipower')" id="tabTaipower" class="flex flex-col items-center py-1.5 px-0.5 text-stone-400 flex-1 gap-0.5">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-        <span class="text-[9px] font-medium">台電</span>
-      </button>
       <button onclick="switchTab('checkout')" id="tabCheckout" class="flex flex-col items-center py-1.5 px-0.5 text-stone-400 flex-1 gap-0.5">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
         <span class="text-[9px] font-medium">退租</span>
@@ -399,14 +411,6 @@
       <button onclick="switchTab('tenant')" id="tabTenant" class="flex flex-col items-center py-1.5 px-0.5 text-stone-400 flex-1 gap-0.5">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
         <span class="text-[9px] font-medium">租客</span>
-      </button>
-      <button onclick="switchTab('report')" id="tabReport" class="flex flex-col items-center py-1.5 px-0.5 text-stone-400 flex-1 gap-0.5">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-        <span class="text-[9px] font-medium">報表</span>
-      </button>
-      <button onclick="switchTab('settings')" id="tabSettings" class="flex flex-col items-center py-1.5 px-0.5 text-stone-400 flex-1 gap-0.5">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-        <span class="text-[9px] font-medium">設定</span>
       </button>
     </nav>
 <div id="modalEdit" class="hidden fixed inset-0 modal-bg z-50 flex items-center justify-center p-4">
@@ -768,10 +772,10 @@
         document.getElementById('headerTitle').innerText = '對帳中心';
         if (!cacheStatus.billing) { loadReconciliation(); cacheStatus.billing = true; }
         
-      } else if (tab === 'taipower') { 
-        document.getElementById('taipowerSection').classList.remove('hidden'); 
-        document.getElementById('tabTaipower').className = activeClass; 
-        document.getElementById('headerTitle').innerText = '台電結算';
+      } else if (tab === 'taipower') {
+        document.getElementById('taipowerSection').classList.remove('hidden');
+        document.getElementById('tabBilling').className = activeClass; // 合併至對帳頁
+        document.getElementById('headerTitle').innerText = '台電帳單';
         
       } else if (tab === 'checkout') { 
         document.getElementById('checkoutSection').classList.remove('hidden'); 
@@ -779,11 +783,12 @@
         document.getElementById('headerTitle').innerText = '退租作業'; 
         if (!cacheStatus.checkout) { loadCheckoutRooms(); cacheStatus.checkout = true; }
         
-      } else if (tab === 'tenant') { 
-        document.getElementById('tenantSection').classList.remove('hidden'); 
-        document.getElementById('tabTenant').className = activeClass; 
-        document.getElementById('headerTitle').innerText = '租客管理'; 
+      } else if (tab === 'tenant') {
+        document.getElementById('tenantSection').classList.remove('hidden');
+        document.getElementById('tabTenant').className = activeClass;
+        document.getElementById('headerTitle').innerText = '租客管理';
         if (!cacheStatus.tenant) { loadTenants(); cacheStatus.tenant = true; }
+        else { tenantFilterMode = 'all'; applyTenantFilter(); } // 重設篩選模式
         
       } else if (tab === 'report') {
         document.getElementById('reportSection').classList.remove('hidden');
@@ -1811,15 +1816,11 @@ document.getElementById('checkoutForm').addEventListener('submit', function(e){
     }
 
     function switchToTenantFiltered(mode) {
-      tenantFilterMode = mode;
+      switchTab('tenant');       // 會先 reset 成 'all'（若已快取）
+      tenantFilterMode = mode;   // 覆寫為目標模式
       document.getElementById('tenantSearch').value = '';
-      switchTab('tenant');
       if (globalRooms.length > 0) applyTenantFilter();
-      else {
-        google.script.run.withSuccessHandler(data => {
-          globalRooms = data; applyTenantFilter();
-        }).getAllRoomsInfo();
-      }
+      // 若未快取，loadTenants() 非同步完成後會呼叫 applyTenantFilter，屆時 mode 已設好
     }
 // ==========================================
 // 替換這三個函數，確保沒有任何 [cite] 標籤
@@ -1919,7 +1920,7 @@ function applyTenantFilter() {
             </div>
             ${expireWarning}
           </div>
-          <div class="text-stone-600 font-medium text-sm ml-0.5">${isRented ? r.tenant : '-'}</div>
+          <div class="text-stone-600 font-medium text-sm ml-0.5">${isRented ? r.tenant : '-'}${isRented && r.remark ? `<span class="text-[11px] text-stone-400 font-normal ml-1.5">(${r.remark})</span>` : ''}</div>
           ${tenantInfoHtml}
         </div>
         <div class="flex gap-2 mt-4 pt-4 border-t border-stone-100">
@@ -2169,10 +2170,15 @@ function reprintBill(hStr) {
       document.getElementById('headerTitle').innerText = '台電年度結算';
       const sel = document.getElementById('tpAnnualRoom');
       if (sel.options.length <= 1) {
-        google.script.run.withSuccessHandler(rooms => {
+        const populate = rooms => {
           sel.innerHTML = '<option value="">請選擇...</option>';
-          rooms.forEach(r => { sel.innerHTML += `<option value="${r.roomId}">${r.roomId} (${r.tenant})</option>`; });
-        }).getRentedRooms();
+          rooms.filter(r => r.status === '出租中' || r.status === '退租中').forEach(r => {
+            const label = r.status === '退租中' ? `${r.roomId} (${r.tenant}) [退租]` : `${r.roomId} (${r.tenant})`;
+            sel.innerHTML += `<option value="${r.roomId}" data-status="${r.status}">${label}</option>`;
+          });
+        };
+        if (globalRooms.length > 0) populate(globalRooms);
+        else google.script.run.withSuccessHandler(populate).getAllRoomsInfo();
       }
     }
 
@@ -2200,7 +2206,14 @@ function reprintBill(hStr) {
             showAlert('', '');
             return;
           }
-          document.getElementById('tpAnnualSubmitBtn').classList.remove('hidden');
+          // 退租中：只看差額，不執行續約
+          const selOpt = document.getElementById('tpAnnualRoom').options[document.getElementById('tpAnnualRoom').selectedIndex];
+          const isCheckoutRoom = selOpt && selOpt.getAttribute('data-status') === '退租中';
+          if (isCheckoutRoom) {
+            document.getElementById('tpAnnualSubmitBtn').classList.add('hidden');
+          } else {
+            document.getElementById('tpAnnualSubmitBtn').classList.remove('hidden');
+          }
           // 計算差額：加總 history 中各期租客電費 vs 台電實際費用
           let tenantPaid = 0, tpActual = 0;
           (data.history || []).forEach(h => {
@@ -2222,6 +2235,12 @@ function reprintBill(hStr) {
           box.className = 'p-4 rounded border text-center ' + (diff >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200');
           amt.className = 'text-2xl font-bold ' + (diff >= 0 ? 'text-green-700' : 'text-red-700');
           _tpAnnualData._calcDiff = diff;
+          if (isCheckoutRoom) {
+            const note = document.createElement('p');
+            note.className = 'text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 mt-2 text-center';
+            note.innerText = '此房間退租中，差額僅供參考，不執行續約';
+            box.after(note);
+          }
           details.classList.remove('hidden');
           showAlert('', '');
         })
