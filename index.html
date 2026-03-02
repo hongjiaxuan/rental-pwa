@@ -393,6 +393,11 @@
               <label class="block text-xs text-stone-500 mb-1">單據底部備註</label>
               <input id="cfgSystemNote" type="text" class="w-full px-3 py-2 border border-stone-200 rounded-lg bg-stone-50 text-sm" placeholder="如有疑問請聯繫房東">
             </div>
+            <div>
+              <label class="block text-xs text-stone-500 mb-1">📷 電表照片上傳資料夾 ID（Google Drive）</label>
+              <input id="cfgPhotoFolderId" type="text" class="w-full px-3 py-2 border border-stone-200 rounded-lg bg-stone-50 text-sm font-mono" placeholder="Google Drive 資料夾 ID">
+              <p class="text-[10px] text-stone-400 mt-1">從 Drive 資料夾網址取得：drive.google.com/drive/folders/<span class="font-bold">這裡就是 ID</span></p>
+            </div>
           </div>
         </div>
 
@@ -2193,6 +2198,7 @@ function reprintBill(hStr) {
         document.getElementById('cfgDeadlineDays').value= cfg['deadline_days']|| '5';
         document.getElementById('cfgOwnerName').value   = cfg['owner_name']   || '';
         document.getElementById('cfgSystemNote').value  = cfg['system_note']  || '';
+        document.getElementById('cfgPhotoFolderId').value = cfg['photo_folder_id'] || '';
         if (cfg['bank_name'])     BANK_INFO.name = cfg['bank_name'];
         if (cfg['bank_account'])  BANK_INFO.account = cfg['bank_account'];
         if (cfg['bank_user'])     BANK_INFO.user = cfg['bank_user'];
@@ -2211,8 +2217,9 @@ function reprintBill(hStr) {
         bank_account:  document.getElementById('cfgBankAccount').value,
         bank_user:     document.getElementById('cfgBankUser').value,
         deadline_days: document.getElementById('cfgDeadlineDays').value || '5',
-        owner_name:    document.getElementById('cfgOwnerName').value,
-        system_note:   document.getElementById('cfgSystemNote').value,
+        owner_name:      document.getElementById('cfgOwnerName').value,
+        system_note:     document.getElementById('cfgSystemNote').value,
+        photo_folder_id: document.getElementById('cfgPhotoFolderId').value.trim(),
       };
       google.script.run.withSuccessHandler(res => {
         showAlert(res && res.message ? res.message : (res && res.success ? '設定已儲存' : '儲存失敗'), res && res.success ? 'green' : 'red');

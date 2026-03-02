@@ -283,7 +283,15 @@ function submitMeterReading(data) {
     let imageUrl = "";
     if (data.imageBase64) {
       try {
-        const folder = DriveApp.getFolderById(PHOTO_FOLDER_ID);
+        // 優先從 Settings 工作表讀取資料夾 ID，若未設定則 fallback 到常數
+        let photoFolderId = PHOTO_FOLDER_ID;
+        const sSheet = ss.getSheetByName('Settings');
+        if (sSheet) {
+          const sRows = sSheet.getDataRange().getValues().slice(1);
+          const sRow = sRows.find(r => String(r[0]).trim() === 'photo_folder_id');
+          if (sRow && String(sRow[1]).trim()) photoFolderId = String(sRow[1]).trim();
+        }
+        const folder = DriveApp.getFolderById(photoFolderId);
         const base64Data = data.imageBase64.split(',')[1] || data.imageBase64;
         const blob = Utilities.newBlob(Utilities.base64Decode(base64Data), 'image/jpeg', `${data.roomId}_${currentYM}_抄表.jpg`);
         imageUrl = folder.createFile(blob).getUrl();
@@ -1357,12 +1365,13 @@ function initSettingsSheet() {
   }
 
   const defaults = [
-    ['bank_name',     '中國信託 (822) 鳳山分行'],
-    ['bank_account',  '123-4567-89012'],
-    ['bank_user',     '房東姓名或公司'],
-    ['deadline_days', '5'],
-    ['owner_name',    '房東'],
-    ['system_note',   '如有疑問請聯繫房東']
+    ['bank_name',       '中國信託 (822) 鳳山分行'],
+    ['bank_account',    '123-4567-89012'],
+    ['bank_user',       '房東姓名或公司'],
+    ['deadline_days',   '5'],
+    ['owner_name',      '房東'],
+    ['system_note',     '如有疑問請聯繫房東'],
+    ['photo_folder_id', PHOTO_FOLDER_ID]   // 預設使用程式碼頂端的常數
   ];
 
   const existing = sheet.getDataRange().getValues();
