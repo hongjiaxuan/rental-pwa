@@ -732,6 +732,41 @@
     const BANK_INFO = { name: "中國信託 (822) 鳳山分行", account: "123-4567-89012", user: "租管科技股份有限公司", deadlineDays: 5 };
     function fmtNum(num) { return Number(num).toLocaleString('en-US'); }
 
+    // ══════════════════════════════════════════
+    // localStorage 快取 — 加速資料顯示
+    // ══════════════════════════════════════════
+    const LSCache = {
+      get(key, maxAgeMs) {
+        try {
+          const raw = localStorage.getItem('rmc_' + key);
+          if (!raw) return null;
+          const { data, ts } = JSON.parse(raw);
+          if (maxAgeMs && (Date.now() - ts) >= maxAgeMs) return null;
+          return data;
+        } catch(e) { return null; }
+      },
+      set(key, data) {
+        try { localStorage.setItem('rmc_' + key, JSON.stringify({ data, ts: Date.now() })); } catch(e) {}
+      },
+      clear(...keys) {
+        keys.forEach(k => { try { localStorage.removeItem('rmc_' + k); } catch(e) {} });
+      }
+    };
+
+    // 首頁數據渲染（供快取與 GAS 回傳共用）
+    function renderDashboard(res) {
+      if (!res || !res.success) return;
+      document.getElementById('dbUnpaidTotal').innerText = fmtNum(res.data.billing.unpaidTotal);
+      document.getElementById('dbUnpaidCount').innerText = res.data.billing.unpaidCount;
+      document.getElementById('dbRefundTotal').innerText = fmtNum(res.data.refunds.refundTotal);
+      document.getElementById('dbRefundCount').innerText = res.data.refunds.refundCount;
+      document.getElementById('dbTotalRooms').innerText = res.data.rooms.total;
+      document.getElementById('dbRentedRooms').innerText = res.data.rooms.rented;
+      document.getElementById('dbEmptyRooms').innerText = res.data.rooms.empty;
+      document.getElementById('dbExpiredCount').innerText = res.data.rooms.expired + ' 戶';
+      document.getElementById('dbExpiringCount').innerText = res.data.rooms.expiring + ' 戶';
+    }
+
     // === 自訂確認視窗邏輯 ===
     let confirmCallback = null;
     function customConfirm(msg, callback) {
@@ -757,10 +792,20 @@
       report: false
     };
 
-    window.onload = function() { 
-      switchTab('dashboard'); // 預設開啟首頁
-      // 抄表資料依然在背景載入
-      google.script.run.withSuccessHandler(initRooms).getPendingRooms(); 
+    window.onload = function() {
+      switchTab('dashboard'); // 先切到首頁（可能顯示快取）
+      // 單次批次呼叫取代兩次獨立請求，GAS Cold Start 只付一次
+      google.script.run
+        .withSuccessHandler(data => {
+          if (data.dashboard) {
+            LSCache.set('dashboard', data.dashboard);
+            renderDashboard(data.dashboard);
+            showAlert('', '');
+          }
+          if (data.pendingRooms) initRooms(data.pendingRooms);
+        })
+        .withFailureHandler(() => showAlert('連線失敗，請確認網路', 'red'))
+        .getInitialData();
     };
 
     function switchTab(tab) {
@@ -774,11 +819,16 @@
         if (btn) btn.className = inactiveClass; 
       });
       
-      if (tab === 'dashboard') { 
+      if (tab === 'dashboard') {
         document.getElementById('dashboardSection').classList.remove('hidden');
-        document.getElementById('tabDashboard').className = activeClass; 
+        document.getElementById('tabDashboard').className = activeClass;
         document.getElementById('headerTitle').innerText = '營運總覽';
-        if (!cacheStatus.dashboard) { loadDashboard(); cacheStatus.dashboard = true; }
+        if (!cacheStatus.dashboard) {
+          cacheStatus.dashboard = true;
+          const cached = LSCache.get('dashboard', 10 * 60 * 1000); // 10 分鐘快取
+          if (cached) { renderDashboard(cached); }
+          else { showAlert('連線中...', 'blue'); }
+        }
         
       } else if (tab === 'meter') { 
         document.getElementById('meterSection').classList.remove('hidden');
@@ -822,26 +872,10 @@
       }
     }
     function loadDashboard() {
-      showAlert('讀取最新數據中...', 'blue');
+      showAlert('更新中...', 'blue');
       google.script.run.withSuccessHandler(res => {
-        if(res.success) {
-          // 填入財務數據
-          document.getElementById('dbUnpaidTotal').innerText = fmtNum(res.data.billing.unpaidTotal);
-          document.getElementById('dbUnpaidCount').innerText = res.data.billing.unpaidCount;
-          document.getElementById('dbRefundTotal').innerText = fmtNum(res.data.refunds.refundTotal);
-          document.getElementById('dbRefundCount').innerText = res.data.refunds.refundCount;
-          
-          // 填入房況數據
-          document.getElementById('dbTotalRooms').innerText = res.data.rooms.total;
-          document.getElementById('dbRentedRooms').innerText = res.data.rooms.rented;
-          document.getElementById('dbEmptyRooms').innerText = res.data.rooms.empty;
-          
-          // 填入待辦事項
-          document.getElementById('dbExpiredCount').innerText = res.data.rooms.expired + ' 戶';
-          document.getElementById('dbExpiringCount').innerText = res.data.rooms.expiring + ' 戶';
-        } else {
-          showAlert('儀表板讀取失敗', 'red');
-        }
+        if (res.success) { LSCache.set('dashboard', res); renderDashboard(res); showAlert('', ''); }
+        else showAlert('儀表板讀取失敗', 'red');
       }).getDashboardSummary();
     }
 
@@ -957,9 +991,10 @@ document.getElementById('meterForm').addEventListener('submit', function(e) {
 
   google.script.run
     .withSuccessHandler(res => { 
-      if (res.success) { 
-        showAlert(res.message, 'green'); 
-        
+      if (res.success) {
+        showAlert(res.message, 'green');
+        LSCache.clear('dashboard', 'recon'); // 新帳單產生，清除相關快取
+
         // 1. 先重置所有輸入欄位與圖片狀態 (解決按鈕卡住與圖片未清空)
         document.getElementById('currentReading').value = '';
         document.getElementById('photoInputCamera').value = '';
@@ -1010,9 +1045,13 @@ document.getElementById('meterForm').addEventListener('submit', function(e) {
 });
 
     // === 2. 雙向對帳模組 ===
-    function loadReconciliation() { 
-      document.getElementById('reconContainer').innerHTML = '<p class="text-stone-400 text-center py-10">資料同步中...</p>'; 
-      google.script.run.withSuccessHandler(renderReconData).getReconciliationData(); 
+    function loadReconciliation() {
+      const cached = LSCache.get('recon', 2 * 60 * 1000);
+      if (cached) renderReconData(cached);
+      else document.getElementById('reconContainer').innerHTML = '<p class="text-stone-400 text-center py-10">資料同步中...</p>';
+      google.script.run.withSuccessHandler(data => {
+        LSCache.set('recon', data); renderReconData(data);
+      }).getReconciliationData();
     }
 
 // 1. 接收後端資料，並存入全域變數
@@ -1182,11 +1221,11 @@ document.getElementById('meterForm').addEventListener('submit', function(e) {
       document.getElementById('modalPay').classList.remove('hidden'); 
     }
     
-    function submitPayment() { 
-      document.getElementById('modalPay').classList.add('hidden'); 
-      google.script.run.withSuccessHandler(res => { 
-        showAlert(res.message, res.success ? 'green' : 'red'); 
-        if(res.success) loadReconciliation(); 
+    function submitPayment() {
+      document.getElementById('modalPay').classList.add('hidden');
+      google.script.run.withSuccessHandler(res => {
+        showAlert(res.message, res.success ? 'green' : 'red');
+        if(res.success) { LSCache.clear('dashboard', 'recon'); loadReconciliation(); } 
       }).confirmPayment({ 
         billId: document.getElementById('modPayBillId').value, 
         payDate: document.getElementById('modPayDate').value, 
@@ -1833,8 +1872,12 @@ document.getElementById('checkoutForm').addEventListener('submit', function(e){
     let globalRooms = [];
     let tenantFilterMode = 'all'; // 'all' | 'expired' | 'expiring'
     function loadTenants() {
-      document.getElementById('tenantContainer').innerHTML = '<p class="text-stone-400 text-center py-10 text-sm">載入中...</p>';
-      google.script.run.withSuccessHandler(data => { globalRooms = data; applyTenantFilter(); }).getAllRoomsInfo();
+      const cached = LSCache.get('tenants', 5 * 60 * 1000);
+      if (cached) { globalRooms = cached; applyTenantFilter(); }
+      else { document.getElementById('tenantContainer').innerHTML = '<p class="text-stone-400 text-center py-10 text-sm">載入中...</p>'; }
+      google.script.run.withSuccessHandler(data => {
+        globalRooms = data; LSCache.set('tenants', data); applyTenantFilter();
+      }).getAllRoomsInfo();
     }
 
     function switchToTenantFiltered(mode) {
@@ -2002,6 +2045,7 @@ function submitTenantEdit() {
   google.script.run.withSuccessHandler(res => {
     showAlert(res.message, res.success ? 'green' : 'red');
     if(res.success) {
+      LSCache.clear('tenants', 'dashboard'); // 租客資料變更，清除快取
       document.getElementById('modalTenant').classList.add('hidden');
       loadTenants();
     }
@@ -2093,7 +2137,7 @@ function submitRenewContract() {
   showAlert('處理中...', 'blue');
   google.script.run.withSuccessHandler(res => {
     showAlert(res.message, res.success ? 'green' : 'red');
-    if(res.success) loadTenants();
+    if(res.success) { LSCache.clear('tenants', 'dashboard'); loadTenants(); }
   }).renewContract(payload);
 }
 

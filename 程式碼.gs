@@ -24,6 +24,7 @@ function doPost(e) {
     const payload = body.payload;
 
     const ALLOWED = {
+      getInitialData:               () => getInitialData(),       // 啟動批次呼叫
       getPendingRooms:              () => getPendingRooms(),
       getDashboardSummary:          () => getDashboardSummary(),
       getReconciliationData:        () => getReconciliationData(),
@@ -1568,5 +1569,20 @@ function getReportData() {
 
 
 // Line Notify 功能已移除（2024年 Line 已停止 Notify 服務）
+
+// ══════════════════════════════════════════════════════════════
+// 啟動批次呼叫：一次 Cold Start 取得首頁所需所有資料
+// ══════════════════════════════════════════════════════════════
+function getInitialData() {
+  try {
+    return {
+      success:      true,
+      dashboard:    getDashboardSummary(),
+      pendingRooms: getPendingRooms()
+    };
+  } catch(e) {
+    return { success: false, message: e.message };
+  }
+}
 
 
